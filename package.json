@@ -6,22 +6,31 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:push": "dotenv -e .env.development.local -- prisma db push",
+    "db:seed": "dotenv -e .env.development.local -- prisma db seed",
+    "db:generate": "dotenv -e .env.development.local -- prisma generate"
   },
   "dependencies": {
+    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "next": "16.3.0-canary.2",
     "next-devtools-mcp": "^0.3.10",
     "react": "19.2.5",
-    "react-dom": "19.2.5"
+    "react-dom": "19.2.5",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0-canary.2",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

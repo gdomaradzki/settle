@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── users ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUBMITTER
+  APPROVER
+}
+
+model User {
+  id    String   @id @default(cuid())
+  name  String
+  email String   @unique
+  role  UserRole
+}
+
+// ─── vendors ──────────────────────────────────────────────────────────────────
+
+enum PaymentMethod {
+  ACH
+  CHECK
+}
+
+model Vendor {
+  id                String        @id @default(cuid())
+  name              String
+  email             String?
+  paymentMethod     PaymentMethod @default(ACH)
+  achAccountLast4   String?
+  achRoutingLast4   String?
+  mailingAddress    String?
+  defaultGlCategory String?
+  createdAt         DateTime      @default(now())
+
+  bills Bill[]
+}
+
+// ─── bills ────────────────────────────────────────────────────────────────────
+
+enum BillStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PAID
+  REJECTED
+}
+
+enum LineItemType {
+  EXPENSE
+  ITEM
+}
+
+model Bill {
+  id            String     @id @default(cuid())
+  vendorId      String
+  invoiceNumber String?
+  amountCents   Int
+  currency      String     @default("USD")
+  issueDate     DateTime
+  dueDate       DateTime
+  status        BillStatus @default(DRAFT)
+  memo          String?
+  glCategory    String?
+  pdfPath       String?
+
+  // Lifecycle timestamps — denormalized for fast inbox and dashboard queries
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  approvedById        String?
+  rejectedAt          DateTime?
+  rejectedReason      String?
+  scheduledPayDate    DateTime?
+  scheduledMethod     PaymentMethod?
+  paidAt              DateTime?
+  paymentConfirmation String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor    Vendor         @relation(fields: [vendorId], references: [id])
+  lineItems BillLineItem[]
+  events    BillEvent[]
+
+  @@index([status, dueDate])
+  @@index([vendorId])
+}
+
+model BillLineItem {
+  id          String       @id @default(cuid())
+  billId      String
+  description String
+  amountCents Int
+  type        LineItemType @default(EXPENSE)
+  glCategory  String?
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+}
+
+model BillEvent {
+  id        String   @id @default(cuid())
+  billId    String
+  type      String
+  actorId   String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([billId, createdAt])
+}
