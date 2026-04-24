@@ -15,7 +15,7 @@ function daysAgo(n: number) {
 
 const CANNED: Record<string, InvoiceExtraction> = {
   'aws-invoice.pdf': {
-    vendorName: 'AWS',
+    vendorName: 'Amazon Web Services',
     invoiceNumber: 'AWS-2026-05-INV',
     amountCents: 842_300,
     issueDate: daysAgo(15),

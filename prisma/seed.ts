@@ -128,7 +128,7 @@ async function main() {
   // ─── Vendors ────────────────────────────────────────────────────────────────
   const aws = await db.vendor.create({
     data: {
-      name: 'AWS',
+      name: 'Amazon Web Services',
       email: 'billing@aws.amazon.com',
       paymentMethod: PaymentMethod.ACH,
       achAccountLast4: '4821',
