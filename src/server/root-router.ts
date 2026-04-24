@@ -6,6 +6,7 @@ import { userRouter } from '@/features/users/user-router';
 import { vendorRouter } from '@/features/vendors/vendor-router';
 import { intakeRouter } from '@/features/intake/intake-router';
 import { dashboardRouter } from '@/features/dashboard/dashboard-router';
+import { reportRouter } from '@/features/reports/report-router';
 
 export const appRouter = router({
   bill: billRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   vendor: vendorRouter,
   intake: intakeRouter,
   dashboard: dashboardRouter,
+  reports: reportRouter,
 });
 
 export type AppRouter = typeof appRouter;

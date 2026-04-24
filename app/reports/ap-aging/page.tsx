@@ -1,7 +1,13 @@
-export default function ApAgingPage() {
-  return (
-    <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
-      <p className="text-sm">AP Aging Report coming soon</p>
-    </div>
-  );
+import type { Metadata } from 'next';
+import { createServerCaller } from '@/server/root-router';
+import { ApAgingReport } from '@/features/reports/components/ap-aging-report';
+import type { ApAgingReport as ReportData } from '@/features/reports/report-service';
+
+export const metadata: Metadata = { title: 'AP Aging Report — Settle' };
+
+export default async function ApAgingPage() {
+  const caller = await createServerCaller();
+  const data = (await caller.reports.apAging()) as unknown as ReportData;
+
+  return <ApAgingReport data={data} />;
 }

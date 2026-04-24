@@ -253,12 +253,12 @@ async function main() {
     {
       vendor: marcus,
       invoiceNumber: 'MLD-2024-047',
-      amountCents: 65000, // $650 — below threshold, auto-approve path not taken because submitted
-      issueDate: addDays(now, -5),
-      dueDate: addDays(now, 10),
+      amountCents: 65000, // $650 — below threshold; aged into 61+ bucket for aging report demo
+      issueDate: addDays(now, -90),
+      dueDate: addDays(now, -75),
       status: BillStatus.PENDING_APPROVAL,
       memo: 'Logo refresh — final delivery',
-      submittedAt: addDays(now, -4),
+      submittedAt: addDays(now, -89),
       lineItems: [{ description: 'Final logo files + brand guide', amountCents: 65000 }],
     },
     gus.id,
@@ -288,12 +288,12 @@ async function main() {
     {
       vendor: notion,
       invoiceNumber: 'NTN-2024-0791',
-      amountCents: 89000, // $890
-      issueDate: addDays(now, -8),
-      dueDate: addDays(now, 14),
+      amountCents: 89000, // $890 — aged into 31–60 bucket for aging report demo
+      issueDate: addDays(now, -60),
+      dueDate: addDays(now, -45),
       status: BillStatus.APPROVED,
-      submittedAt: addDays(now, -7),
-      approvedAt: addDays(now, -6),
+      submittedAt: addDays(now, -58),
+      approvedAt: addDays(now, -57),
       approvedById: ada.id,
       lineItems: [{ description: 'Notion AI add-on — 15 seats', amountCents: 89000 }],
     },
