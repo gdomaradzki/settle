@@ -54,18 +54,18 @@
 
 ## Verification
 
-- [ ] `npm run build` passes.
-- [ ] Navigate to `/reports/ap-aging`:
-  - [ ] Page title reads "AP Aging Report."
-  - [ ] "as of {today}" is displayed and matches today's date.
-  - [ ] Four summary tiles show bucket counts and amounts.
-  - [ ] Vendor table lists outstanding bills grouped by vendor.
-  - [ ] Amounts are formatted as USD with dollar sign and commas.
-  - [ ] Overdue buckets (31–60, 61+) render in red/amber.
-  - [ ] Grand total row at bottom sums correctly per bucket and overall.
-- [ ] Temporarily modify a seeded bill's `dueDate` to be 45 days in the past and re-seed. Reload — that bill should now appear in the 31–60 column. Revert.
-- [ ] Verify that DRAFT, PAID, and REJECTED bills do NOT appear in the report.
-- [ ] Deploy to Vercel. Walk the report page on the live URL.
+- [x] `npm run build` passes.
+- [x] Navigate to `/reports/ap-aging`:
+  - [x] Page title reads "AP Aging Report."
+  - [x] "as of {today}" is displayed and matches today's date.
+  - [x] Four summary tiles show bucket counts and amounts.
+  - [x] Vendor table lists outstanding bills grouped by vendor.
+  - [x] Amounts are formatted as USD with dollar sign and commas.
+  - [x] Overdue buckets (31–60, 61+) render in red/amber.
+  - [x] Grand total row at bottom sums correctly per bucket and overall.
+- [x] Temporarily modify a seeded bill's `dueDate` to be 45 days in the past and re-seed. Reload — that bill should now appear in the 31–60 column. Revert.
+- [x] Verify that DRAFT, PAID, and REJECTED bills do NOT appear in the report.
+- [x] Deploy to Vercel. Walk the report page on the live URL.
 
 ## Definition of done
 
