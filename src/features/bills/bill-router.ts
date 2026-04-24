@@ -35,6 +35,10 @@ export const billRouter = router({
     .input(createBillInput)
     .mutation(({ input, ctx }) => svc.createBill(input, ctx.user.id).catch(mapError)),
 
+  createAndSubmit: protectedProcedure
+    .input(createBillInput)
+    .mutation(({ input, ctx }) => svc.createAndSubmitBill(input, ctx.user.id).catch(mapError)),
+
   update: protectedProcedure
     .input(updateBillInput)
     .mutation(({ input, ctx }) => svc.updateBill(input, ctx.user.id).catch(mapError)),

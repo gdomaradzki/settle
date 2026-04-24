@@ -98,7 +98,7 @@ export function BillIntakeForm({
   });
 
   const createBill = trpc.bill.create.useMutation();
-  const submitBill = trpc.bill.submit.useMutation();
+  const createAndSubmit = trpc.bill.createAndSubmit.useMutation();
 
   // Apply extraction data on mount / when extraction changes
   useEffect(() => {
@@ -134,11 +134,10 @@ export function BillIntakeForm({
   async function handleSubmitForApproval(values: BillFormValues) {
     setSubmitting(true);
     try {
-      const bill = await createBill.mutateAsync({
+      const bill = await createAndSubmit.mutateAsync({
         ...values,
         pdfPath: pdfUrl ?? undefined,
       });
-      await submitBill.mutateAsync(bill.id);
       utils.bill.list.invalidate();
       toast.success("Bill submitted");
       router.push(`/bills/${bill.id}`);

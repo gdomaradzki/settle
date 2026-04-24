@@ -13,41 +13,83 @@ import { requiresApproval } from '@/features/approvals/approval-rules';
 import { InvalidTransitionError, UnauthorizedError } from './errors';
 import type { CreateBillInput, UpdateBillInput, ListBillsInput } from './schemas';
 
-export async function createBill(input: CreateBillInput, actorId: string): Promise<Bill> {
-  return db.$transaction(async (tx) => {
-    const bill = await tx.bill.create({
-      data: {
-        vendorId: input.vendorId,
-        invoiceNumber: input.invoiceNumber,
-        amountCents: input.amountCents,
-        currency: 'USD',
-        issueDate: input.issueDate,
-        dueDate: input.dueDate,
-        status: 'DRAFT',
-        memo: input.memo,
-        glCategory: input.glCategory,
-        pdfPath: input.pdfPath,
-        createdById: actorId,
-      },
-    });
+// ─── Inner helpers (take a tx client — safe to compose in one transaction) ───
 
-    if (input.lineItems.length > 0) {
-      await tx.billLineItem.createMany({
-        data: input.lineItems.map((li) => ({
-          billId: bill.id,
-          description: li.description,
-          amountCents: li.amountCents,
-          type: li.type ?? 'EXPENSE',
-        })),
-      });
-    }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Tx = any;
 
-    await tx.billEvent.create({
-      data: { billId: bill.id, type: 'created', actorId },
-    });
-
-    return bill;
+async function createBillInner(tx: Tx, input: CreateBillInput, actorId: string): Promise<Bill> {
+  const bill = await tx.bill.create({
+    data: {
+      vendorId: input.vendorId,
+      invoiceNumber: input.invoiceNumber,
+      amountCents: input.amountCents,
+      currency: 'USD',
+      issueDate: input.issueDate,
+      dueDate: input.dueDate,
+      status: 'DRAFT',
+      memo: input.memo,
+      glCategory: input.glCategory,
+      pdfPath: input.pdfPath,
+      createdById: actorId,
+    },
   });
+
+  if (input.lineItems.length > 0) {
+    await tx.billLineItem.createMany({
+      data: input.lineItems.map((li: { description: string; amountCents: number; type?: string }) => ({
+        billId: bill.id,
+        description: li.description,
+        amountCents: li.amountCents,
+        type: li.type ?? 'EXPENSE',
+      })),
+    });
+  }
+
+  await tx.billEvent.create({
+    data: { billId: bill.id, type: 'created', actorId },
+  });
+
+  return bill;
+}
+
+async function submitBillInner(tx: Tx, billId: string, actorId: string): Promise<Bill> {
+  const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
+
+  if (bill.status !== 'DRAFT') {
+    throw new InvalidTransitionError(bill.status as BillStatus, 'PENDING_APPROVAL');
+  }
+
+  const now = new Date();
+
+  if (requiresApproval(bill.amountCents)) {
+    const updated = await tx.bill.update({
+      where: { id: billId },
+      data: { status: 'PENDING_APPROVAL', submittedAt: now },
+    });
+    await tx.billEvent.create({
+      data: { billId, type: 'submitted', actorId, payload: { toStatus: 'PENDING_APPROVAL' } },
+    });
+    return updated;
+  } else {
+    const updated = await tx.bill.update({
+      where: { id: billId },
+      data: { status: 'APPROVED', submittedAt: now, approvedAt: now, approvedById: actorId },
+    });
+    await tx.billEvent.createMany({
+      data: [
+        { billId, type: 'submitted', actorId, payload: { toStatus: 'APPROVED' } },
+        { billId, type: 'approved', actorId, payload: { fromStatus: 'DRAFT', toStatus: 'APPROVED', autoApproved: 'true' } },
+      ],
+    });
+    return updated;
+  }
+}
+
+// ─── Public exports ───────────────────────────────────────────────────────────
+
+export async function createBill(input: CreateBillInput, actorId: string): Promise<Bill> {
+  return db.$transaction((tx) => createBillInner(tx, input, actorId));
 }
 
 export async function updateBill(input: UpdateBillInput, actorId: string): Promise<Bill> {
@@ -89,37 +131,16 @@ export async function updateBill(input: UpdateBillInput, actorId: string): Promi
 }
 
 export async function submitBill(billId: string, actorId: string): Promise<Bill> {
+  return db.$transaction((tx) => submitBillInner(tx, billId, actorId));
+}
+
+export async function createAndSubmitBill(
+  input: CreateBillInput,
+  actorId: string,
+): Promise<Bill> {
   return db.$transaction(async (tx) => {
-    const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
-
-    if (bill.status !== 'DRAFT') {
-      throw new InvalidTransitionError(bill.status as BillStatus, 'PENDING_APPROVAL');
-    }
-
-    const now = new Date();
-
-    if (requiresApproval(bill.amountCents)) {
-      const updated = await tx.bill.update({
-        where: { id: billId },
-        data: { status: 'PENDING_APPROVAL', submittedAt: now },
-      });
-      await tx.billEvent.create({
-        data: { billId, type: 'submitted', actorId, payload: { toStatus: 'PENDING_APPROVAL' } },
-      });
-      return updated;
-    } else {
-      const updated = await tx.bill.update({
-        where: { id: billId },
-        data: { status: 'APPROVED', submittedAt: now, approvedAt: now, approvedById: actorId },
-      });
-      await tx.billEvent.createMany({
-        data: [
-          { billId, type: 'submitted', actorId, payload: { toStatus: 'APPROVED' } },
-          { billId, type: 'approved', actorId, payload: { fromStatus: 'DRAFT', toStatus: 'APPROVED', autoApproved: 'true' } },
-        ],
-      });
-      return updated;
-    }
+    const bill = await createBillInner(tx, input, actorId);
+    return submitBillInner(tx, bill.id, actorId);
   });
 }
 
