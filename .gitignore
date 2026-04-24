@@ -45,3 +45,6 @@ next-env.d.ts
 .vercel
 
 /generated/prisma
+
+# Verification scripts (not part of the product)
+/scripts/
