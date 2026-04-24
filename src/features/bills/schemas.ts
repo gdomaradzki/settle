@@ -14,6 +14,7 @@ export const createBillInput = z.object({
   dueDate: z.coerce.date(),
   memo: z.string().optional(),
   glCategory: z.string().optional(),
+  pdfPath: z.string().optional(),
   lineItems: z.array(lineItemInput),
 });
 export type CreateBillInput = z.infer<typeof createBillInput>;

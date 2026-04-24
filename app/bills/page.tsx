@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import Link from 'next/link';
+import { PlusIcon } from 'lucide-react';
 import { BillsFilterSidebar } from '@/features/bills/components/bills-filter-sidebar';
 import { BillsSearch } from '@/features/bills/components/bills-search';
 import { BillsTable } from '@/features/bills/components/bills-table';
@@ -18,9 +20,18 @@ export default function BillsPage() {
       <div className="flex flex-1 flex-col gap-4 overflow-auto px-6 py-5">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-base font-semibold text-foreground">Bills</h1>
-          <Suspense>
-            <BillsSearch />
-          </Suspense>
+          <div className="flex items-center gap-2">
+            <Suspense>
+              <BillsSearch />
+            </Suspense>
+            <Link
+              href="/bills/new"
+              className="flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-colors hover:bg-foreground/90 shrink-0"
+            >
+              <PlusIcon className="size-3.5" />
+              New bill
+            </Link>
+          </div>
         </div>
 
         <Suspense>

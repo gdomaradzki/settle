@@ -1,4 +1,4 @@
-import { FileXIcon } from 'lucide-react';
+import { FileXIcon } from "lucide-react";
 
 interface Props {
   pdfPath: string | null;

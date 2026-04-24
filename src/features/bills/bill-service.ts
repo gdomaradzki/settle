@@ -26,6 +26,7 @@ export async function createBill(input: CreateBillInput, actorId: string): Promi
         status: 'DRAFT',
         memo: input.memo,
         glCategory: input.glCategory,
+        pdfPath: input.pdfPath,
         createdById: actorId,
       },
     });
