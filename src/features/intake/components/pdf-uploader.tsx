@@ -1,29 +1,30 @@
 'use client';
 import { useRef, useState } from 'react';
-import { UploadCloudIcon, FileTextIcon, XIcon } from 'lucide-react';
+import { UploadCloudIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc-client';
 import { cn } from '@/lib/utils';
 import type { InvoiceExtraction } from '../schemas';
 
 interface Props {
-  onExtracted: (extraction: InvoiceExtraction, filename: string) => void;
+  onFileSelected?: (localUrl: string, filename: string) => void;
+  onExtracted: (extraction: InvoiceExtraction, filename: string, pdfUrl: string | null) => void;
 }
 
-export function PdfUploader({ onExtracted }: Props) {
+export function PdfUploader({ onFileSelected, onExtracted }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extract = trpc.intake.extractFromPdf.useMutation({
-    onSuccess: (data, vars) => onExtracted(data, vars.filename),
+    onSuccess: (data, vars) => onExtracted(data.extraction, vars.filename, data.pdfUrl),
     onError: (err) => {
       setError(err.message);
       toast.error('Extraction failed: ' + err.message);
     },
   });
 
-  async function processFile(file: File) {
+  function processFile(file: File) {
     if (file.type !== 'application/pdf') {
       setError('Only PDF files are supported.');
       return;
@@ -33,6 +34,11 @@ export function PdfUploader({ onExtracted }: Props) {
       return;
     }
     setError(null);
+
+    // Create local URL immediately so the parent can show a preview
+    const localUrl = URL.createObjectURL(file);
+    onFileSelected?.(localUrl, file.name);
+
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -85,9 +91,7 @@ export function PdfUploader({ onExtracted }: Props) {
               <UploadCloudIcon className="size-7 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">
-                Drop invoice PDF here
-              </p>
+              <p className="text-sm font-semibold text-foreground">Drop invoice PDF here</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 or <span className="underline underline-offset-2">click to browse</span>
               </p>

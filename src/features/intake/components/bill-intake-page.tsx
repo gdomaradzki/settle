@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
 import { PdfUploader } from './pdf-uploader';
@@ -11,18 +11,45 @@ type Mode = 'choose' | 'form';
 export function BillIntakePage() {
   const [mode, setMode] = useState<Mode>('choose');
   const [extraction, setExtraction] = useState<InvoiceExtraction | null>(null);
-  const [filename, setFilename] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  // Track the local blob: URL so we can revoke it when the persisted Blob URL arrives
+  const localUrlRef = useRef<string | null>(null);
 
-  function handleExtracted(data: InvoiceExtraction, file: string) {
-    setExtraction(data);
-    setFilename(file);
+  function handleFileSelected(localUrl: string) {
+    localUrlRef.current = localUrl;
+    setPreviewUrl(localUrl);
+    setIsExtracting(true);
     setMode('form');
   }
 
+  function handleExtracted(
+    data: InvoiceExtraction,
+    _filename: string,
+    blobUrl: string | null,
+  ) {
+    setExtraction(data);
+    setPdfUrl(blobUrl);
+    setIsExtracting(false);
+    if (blobUrl && localUrlRef.current) {
+      // Switch preview from ephemeral blob: URL to the persisted Blob URL, free memory
+      URL.revokeObjectURL(localUrlRef.current);
+      localUrlRef.current = null;
+      setPreviewUrl(blobUrl);
+    }
+  }
+
   function handleReset() {
+    if (localUrlRef.current) {
+      URL.revokeObjectURL(localUrlRef.current);
+      localUrlRef.current = null;
+    }
     setMode('choose');
     setExtraction(null);
-    setFilename(null);
+    setPreviewUrl(null);
+    setPdfUrl(null);
+    setIsExtracting(false);
   }
 
   return (
@@ -41,7 +68,10 @@ export function BillIntakePage() {
 
       {mode === 'choose' ? (
         <div className="space-y-6">
-          <PdfUploader onExtracted={handleExtracted} />
+          <PdfUploader
+            onFileSelected={handleFileSelected}
+            onExtracted={handleExtracted}
+          />
 
           <div className="flex items-center gap-4">
             <div className="flex-1 border-t border-border" />
@@ -60,11 +90,46 @@ export function BillIntakePage() {
           </div>
         </div>
       ) : (
-        <BillIntakeForm
-          initialExtraction={extraction}
-          uploadedFilename={filename}
-          onReset={handleReset}
-        />
+        <div className="space-y-5">
+          {/* PDF preview — uses local blob: URL until Blob URL arrives, then switches */}
+          {previewUrl && (
+            <div className="overflow-hidden rounded-lg border border-border">
+              <iframe
+                src={previewUrl}
+                title="Invoice preview"
+                className="h-52 w-full border-0"
+              />
+            </div>
+          )}
+
+          {isExtracting ? (
+            <div className="space-y-4" aria-label="Extracting invoice data…">
+              {[100, 80, 96, 80, 96].map((w, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+                  <div
+                    className="h-8 animate-pulse rounded-md bg-muted"
+                    style={{ width: `${w}%` }}
+                  />
+                </div>
+              ))}
+              <div className="h-px w-full bg-muted" />
+              <div className="space-y-1.5">
+                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                <div className="h-16 w-full animate-pulse rounded-md bg-muted" />
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                Extracting invoice data…
+              </p>
+            </div>
+          ) : (
+            <BillIntakeForm
+              initialExtraction={extraction}
+              pdfUrl={pdfUrl}
+              onReset={handleReset}
+            />
+          )}
+        </div>
       )}
     </div>
   );

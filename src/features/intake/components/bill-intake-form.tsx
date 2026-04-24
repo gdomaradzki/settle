@@ -30,7 +30,7 @@ import {
 
 interface Props {
   initialExtraction?: InvoiceExtraction | null;
-  uploadedFilename?: string | null;
+  pdfUrl?: string | null;
   onReset?: () => void;
 }
 
@@ -74,7 +74,7 @@ function DatePicker({
 
 export function BillIntakeForm({
   initialExtraction,
-  uploadedFilename,
+  pdfUrl,
   onReset,
 }: Props) {
   const router = useRouter();
@@ -119,7 +119,7 @@ export function BillIntakeForm({
     try {
       const bill = await createBill.mutateAsync({
         ...values,
-        pdfPath: uploadedFilename ? `/samples/${uploadedFilename}` : undefined,
+        pdfPath: pdfUrl ?? undefined,
       });
       utils.bill.list.invalidate();
       toast.success("Draft saved");
@@ -136,7 +136,7 @@ export function BillIntakeForm({
     try {
       const bill = await createBill.mutateAsync({
         ...values,
-        pdfPath: uploadedFilename ? `/samples/${uploadedFilename}` : undefined,
+        pdfPath: pdfUrl ?? undefined,
       });
       await submitBill.mutateAsync(bill.id);
       utils.bill.list.invalidate();

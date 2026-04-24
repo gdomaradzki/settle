@@ -29,6 +29,16 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Architecture notes
+
+### PDF persistence (Vercel Blob)
+
+Uploaded invoice PDFs are stored in Vercel Blob (`@vercel/blob`). The `BLOB_READ_WRITE_TOKEN` env var is required; if unset or if the upload fails, `Bill.pdfPath` is left `null` and the detail page renders its "No PDF attached" fallback — the bill is still created normally. This failure path is intentional: the demo never breaks because of a missing or misconfigured token.
+
+Blobs are written with `access: 'public'` and `addRandomSuffix: true` — URLs are unguessable but not access-controlled. This is appropriate for demo data; a production deployment would switch to private blobs with server-minted signed URLs to prevent accidental disclosure via referer logs or URL sharing.
+
+The intake preview iframe switches from a local `blob:` URL (shown immediately on file selection) to the persisted Blob URL once `extractFromPdf` returns. The local URL is revoked at that point to free browser memory.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
