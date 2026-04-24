@@ -62,7 +62,7 @@ export function BillActivityTimeline({ events }: Props) {
                 {formatRelativeTime(new Date(event.createdAt))}
               </p>
               {event.type === 'rejected' && payload.reason && (
-                <p className="mt-1 text-xs text-muted-foreground italic">"{payload.reason}"</p>
+                <p className="mt-1 text-xs text-muted-foreground italic">&ldquo;{payload.reason}&rdquo;</p>
               )}
               {event.type === 'scheduled' && payload.payDate && (
                 <p className="mt-1 text-xs text-muted-foreground">

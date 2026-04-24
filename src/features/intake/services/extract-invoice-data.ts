@@ -1,8 +1,11 @@
-import 'server-only';
-import Anthropic from '@anthropic-ai/sdk';
-import type { DocumentBlockParam, TextBlockParam } from '@anthropic-ai/sdk/resources/messages/messages';
-import { invoiceExtractionSchema, type InvoiceExtraction } from '../schemas';
-import { getCannedExtraction } from '../lib/canned-extractions';
+import "server-only";
+import Anthropic from "@anthropic-ai/sdk";
+import type {
+  DocumentBlockParam,
+  TextBlockParam,
+} from "@anthropic-ai/sdk/resources/messages/messages";
+import { invoiceExtractionSchema, type InvoiceExtraction } from "../schemas";
+import { getCannedExtraction } from "../lib/canned-extractions";
 
 const EXTRACTION_PROMPT = `You are extracting structured data from an invoice PDF.
 
@@ -40,27 +43,35 @@ export async function extractInvoiceData(
   try {
     const client = new Anthropic({ apiKey: key });
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: [
             {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: pdfBase64,
+              },
             } satisfies DocumentBlockParam,
-            { type: 'text', text: EXTRACTION_PROMPT } satisfies TextBlockParam,
+            { type: "text", text: EXTRACTION_PROMPT } satisfies TextBlockParam,
           ],
         },
       ],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
     const json = extractJsonBlock(text);
     return invoiceExtractionSchema.parse(JSON.parse(json));
   } catch (err) {
-    console.error('Invoice extraction failed, falling back to canned data:', err);
+    console.error(
+      "Invoice extraction failed, falling back to canned data:",
+      err,
+    );
     return getCannedExtraction(filename);
   }
 }

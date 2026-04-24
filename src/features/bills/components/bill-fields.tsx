@@ -1,7 +1,7 @@
-import { Separator } from '@/components/ui/separator';
-import { formatUSD } from '@/lib/money';
-import { formatAbsoluteDate } from '@/lib/dates';
-import type { BillWithRelations } from '../bill-service';
+import { Separator } from "@/components/ui/separator";
+import { formatUSD } from "@/lib/money";
+import { formatAbsoluteDate } from "@/lib/dates";
+import type { BillWithRelations } from "../bill-service";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
@@ -33,9 +33,14 @@ export function BillFields({ bill }: { bill: BillWithRelations }) {
         <Field label="Invoice #" value={bill.invoiceNumber} />
         <Field label="Amount" value={formatUSD(bill.amountCents)} />
         <Field label="Currency" value={bill.currency} />
-        <Field label="Issued" value={formatAbsoluteDate(new Date(bill.issueDate))} />
+        <Field
+          label="Issued"
+          value={formatAbsoluteDate(new Date(bill.issueDate))}
+        />
         <Field label="Due" value={formatAbsoluteDate(new Date(bill.dueDate))} />
-        {bill.glCategory && <Field label="GL category" value={bill.glCategory} />}
+        {bill.glCategory && (
+          <Field label="GL category" value={bill.glCategory} />
+        )}
         {bill.vendor.paymentMethod && (
           <Field label="Payment method" value={bill.vendor.paymentMethod} />
         )}
@@ -57,8 +62,12 @@ export function BillFields({ bill }: { bill: BillWithRelations }) {
             </p>
             <ul className="space-y-1.5">
               {bill.lineItems.map((li) => (
-                <li key={li.id} className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-foreground truncate">{li.description}</span>
+                <li
+                  key={li.id}
+                  className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-foreground truncate">
+                    {li.description}
+                  </span>
                   <span className="text-sm tabular-nums text-muted-foreground shrink-0">
                     {formatUSD(li.amountCents)}
                   </span>

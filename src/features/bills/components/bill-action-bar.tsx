@@ -9,7 +9,6 @@ import { useBillMutations } from '../hooks/use-bill-mutations';
 import { SchedulePaymentDialog } from './schedule-payment-dialog';
 import { RejectBillDialog } from './reject-bill-dialog';
 import type { BillWithRelations } from '../bill-service';
-import type { PaymentMethod } from '@/generated/prisma/enums';
 
 interface Props {
   bill: BillWithRelations;

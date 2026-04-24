@@ -1,8 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 export function useHotkeys(map: Record<string, () => void>, enabled = true) {
   const mapRef = useRef(map);
-  mapRef.current = map;
+
+  // Update the ref after every render so the handler always calls the latest map
+  useLayoutEffect(() => {
+    mapRef.current = map;
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -19,7 +23,7 @@ export function useHotkeys(map: Record<string, () => void>, enabled = true) {
         fn();
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [enabled]);
 }

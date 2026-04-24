@@ -1,15 +1,17 @@
-import 'server-only';
-import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from '@/server/trpc';
-import { db } from '@/server/db';
+import "server-only";
+import { z } from "zod";
+import { router, publicProcedure, protectedProcedure } from "@/server/trpc";
+import { db } from "@/server/db";
 
 export const vendorRouter = router({
   list: publicProcedure.query(async () => {
     const vendors = await db.vendor.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
       include: {
         bills: {
-          where: { status: { in: ['PENDING_APPROVAL', 'APPROVED', 'SCHEDULED'] } },
+          where: {
+            status: { in: ["PENDING_APPROVAL", "APPROVED", "SCHEDULED"] },
+          },
           select: { amountCents: true },
         },
       },
@@ -38,11 +40,19 @@ export const vendorRouter = router({
     .input(
       z.object({
         name: z.string().min(1),
-        email: z.string().email().optional().or(z.literal('')),
-        paymentMethod: z.enum(['ACH', 'CHECK']),
+        email: z.string().email().optional().or(z.literal("")),
+        paymentMethod: z.enum(["ACH", "CHECK"]),
         defaultGlCategory: z.string().optional(),
-        achAccountLast4: z.string().regex(/^\d{4}$/).optional().or(z.literal('')),
-        achRoutingLast4: z.string().regex(/^\d{4}$/).optional().or(z.literal('')),
+        achAccountLast4: z
+          .string()
+          .regex(/^\d{4}$/)
+          .optional()
+          .or(z.literal("")),
+        achRoutingLast4: z
+          .string()
+          .regex(/^\d{4}$/)
+          .optional()
+          .or(z.literal("")),
         mailingAddress: z.string().optional(),
       }),
     )

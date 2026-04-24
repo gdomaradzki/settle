@@ -1,4 +1,4 @@
-import { trpc } from '@/lib/trpc-client';
+import { trpc } from "@/lib/trpc-client";
 
 export function useCurrentUser() {
   const { data } = trpc.user.current.useQuery();

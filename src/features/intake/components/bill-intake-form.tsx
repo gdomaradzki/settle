@@ -1,7 +1,7 @@
 "use client";
-import { useRef, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { CalendarIcon } from "lucide-react";
@@ -72,16 +72,24 @@ function DatePicker({
   );
 }
 
-export function BillIntakeForm({
-  initialExtraction,
-  pdfUrl,
-  onReset,
-}: Props) {
+export function BillIntakeForm({ initialExtraction, pdfUrl, onReset }: Props) {
   const router = useRouter();
   const utils = trpc.useUtils();
-  const amountTouched = useRef(false);
+  const [amountTouched, setAmountTouched] = useState(false);
+  // Reset amountTouched when extraction changes using derived-state pattern
+  const [prevExtraction, setPrevExtraction] = useState(initialExtraction);
+  if (prevExtraction !== initialExtraction) {
+    setPrevExtraction(initialExtraction);
+    setAmountTouched(false);
+  }
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Lazy initializer so dates are computed once at mount, not on every render
+  const [initialDates] = useState(() => ({
+    issueDate: new Date(),
+    dueDate: new Date(Date.now() + 30 * 86_400_000),
+  }));
 
   const form = useForm<BillFormValues>({
     resolver: zodResolver(billFormSchema),
@@ -89,8 +97,8 @@ export function BillIntakeForm({
       vendorId: "",
       invoiceNumber: "",
       amountCents: 0,
-      issueDate: new Date(),
-      dueDate: new Date(Date.now() + 30 * 86_400_000),
+      issueDate: initialDates.issueDate,
+      dueDate: initialDates.dueDate,
       memo: "",
       glCategory: "",
       lineItems: [{ description: "", amountCents: 0, type: "EXPENSE" }],
@@ -100,10 +108,14 @@ export function BillIntakeForm({
   const createBill = trpc.bill.create.useMutation();
   const createAndSubmit = trpc.bill.createAndSubmit.useMutation();
 
-  // Apply extraction data on mount / when extraction changes
+  const vendorId = useWatch({ control: form.control, name: "vendorId" });
+  const amountCents = useWatch({ control: form.control, name: "amountCents" });
+  const issueDate = useWatch({ control: form.control, name: "issueDate" });
+  const dueDate = useWatch({ control: form.control, name: "dueDate" });
+
+  // Apply extraction data when it changes (form.setValue is an external side effect — correct use of effect)
   useEffect(() => {
     if (!initialExtraction) return;
-    amountTouched.current = false;
     form.setValue("invoiceNumber", initialExtraction.invoiceNumber ?? "");
     form.setValue("amountCents", initialExtraction.amountCents);
     form.setValue("issueDate", new Date(initialExtraction.issueDate));
@@ -111,8 +123,7 @@ export function BillIntakeForm({
     if (initialExtraction.lineItems.length > 0) {
       form.setValue("lineItems", initialExtraction.lineItems);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialExtraction]);
+  }, [initialExtraction, form]);
 
   async function handleSaveDraft(values: BillFormValues) {
     setSavingDraft(true);
@@ -162,7 +173,9 @@ export function BillIntakeForm({
       {onReset && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {initialExtraction && !extractionFailed ? "✓ Extracted from PDF" : "Manual entry"}
+            {initialExtraction && !extractionFailed
+              ? "✓ Extracted from PDF"
+              : "Manual entry"}
           </p>
           <button
             type="button"
@@ -175,7 +188,8 @@ export function BillIntakeForm({
 
       {extractionFailed && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-          We couldn't extract this automatically. Please fill it in manually.
+          We couldn&apos;t extract this automatically. Please fill it in
+          manually.
         </div>
       )}
 
@@ -185,8 +199,7 @@ export function BillIntakeForm({
           Vendor <span className="text-destructive">*</span>
         </Label>
         <VendorCombobox
-          // eslint-disable-next-line react-hooks/incompatible-library
-          value={form.watch("vendorId") || null}
+          value={vendorId || null}
           onChange={(id) =>
             form.setValue("vendorId", id, { shouldValidate: true })
           }
@@ -222,9 +235,9 @@ export function BillIntakeForm({
               step="0.01"
               min="0"
               className="pl-5 h-8 text-sm"
-              value={(form.watch("amountCents") ?? 0) / 100 || ""}
+              value={(amountCents ?? 0) / 100 || ""}
               onChange={(e) => {
-                amountTouched.current = true;
+                setAmountTouched(true);
                 const cents = Math.round(
                   parseFloat(e.target.value || "0") * 100,
                 );
@@ -247,7 +260,7 @@ export function BillIntakeForm({
             Issue date <span className="text-destructive">*</span>
           </Label>
           <DatePicker
-            value={form.watch("issueDate")}
+            value={issueDate}
             onChange={(d) =>
               form.setValue("issueDate", d, { shouldValidate: true })
             }
@@ -261,7 +274,7 @@ export function BillIntakeForm({
             Due date <span className="text-destructive">*</span>
           </Label>
           <DatePicker
-            value={form.watch("dueDate")}
+            value={dueDate}
             onChange={(d) =>
               form.setValue("dueDate", d, { shouldValidate: true })
             }
@@ -301,13 +314,7 @@ export function BillIntakeForm({
         <Label>
           Line items <span className="text-destructive">*</span>
         </Label>
-        <LineItemsField
-          form={form}
-          amountTouched={amountTouched.current}
-          onAmountTouched={() => {
-            amountTouched.current = true;
-          }}
-        />
+        <LineItemsField form={form} amountTouched={amountTouched} />
       </div>
 
       <Separator />
@@ -317,7 +324,7 @@ export function BillIntakeForm({
         <p className="text-xs text-muted-foreground">
           Total:{" "}
           <span className="font-medium text-foreground">
-            {formatUSD(form.watch("amountCents") ?? 0)}
+            {formatUSD(amountCents ?? 0)}
           </span>
         </p>
         <div className="flex gap-2">

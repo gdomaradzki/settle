@@ -1,8 +1,8 @@
-import type { Metadata } from 'next';
-import { createServerCaller } from '@/server/root-router';
-import { DashboardView } from '@/features/dashboard/components/dashboard-view';
+import type { Metadata } from "next";
+import { createServerCaller } from "@/server/root-router";
+import { DashboardView } from "@/features/dashboard/components/dashboard-view";
 
-export const metadata: Metadata = { title: 'Dashboard — Settle' };
+export const metadata: Metadata = { title: "Dashboard — Settle" };
 
 export default async function DashboardPage() {
   const caller = await createServerCaller();
@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   return (
     <DashboardView
       summary={summary}
-      userName={(user as { name: string }).name ?? 'there'}
+      userName={(user as { name: string }).name ?? "there"}
     />
   );
 }

@@ -24,7 +24,7 @@ export function TopBar() {
           Settle
         </Link>
 
-        <nav className="flex flex-1 items-center gap-0.5">
+        <nav className="hidden sm:flex flex-1 items-center gap-0.5">
           {NAV.map(({ href, label }) => {
             const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
             return (

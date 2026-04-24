@@ -1,11 +1,11 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { PlusIcon } from 'lucide-react';
-import { trpc } from '@/lib/trpc-client';
-import { formatUSD } from '@/lib/money';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { PlusIcon } from "lucide-react";
+import { trpc } from "@/lib/trpc-client";
+import { formatUSD } from "@/lib/money";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -13,14 +13,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { AddVendorDialog } from './add-vendor-dialog';
+} from "@/components/ui/table";
+import { AddVendorDialog } from "./add-vendor-dialog";
 
 export type VendorWithOutstanding = {
   id: string;
   name: string;
   email: string | null;
-  paymentMethod: 'ACH' | 'CHECK';
+  paymentMethod: "ACH" | "CHECK";
   achAccountLast4: string | null;
   achRoutingLast4: string | null;
   mailingAddress: string | null;
@@ -31,18 +31,18 @@ export type VendorWithOutstanding = {
 };
 
 function accountSummary(vendor: VendorWithOutstanding): string {
-  if (vendor.paymentMethod === 'ACH' && vendor.achAccountLast4) {
+  if (vendor.paymentMethod === "ACH" && vendor.achAccountLast4) {
     return `****${vendor.achAccountLast4}`;
   }
   if (vendor.mailingAddress) {
     const addr = vendor.mailingAddress;
-    return addr.length > 40 ? addr.slice(0, 40) + '…' : addr;
+    return addr.length > 40 ? addr.slice(0, 40) + "…" : addr;
   }
-  return '—';
+  return "—";
 }
 
 function outstandingLabel(count: number, cents: number): string {
-  if (count === 0) return '0 · —';
+  if (count === 0) return "0 · —";
   return `${count} · ${formatUSD(cents)}`;
 }
 
@@ -79,16 +79,25 @@ export function VendorsTable({ initialVendors }: Props) {
             <TableRow className="hover:bg-transparent">
               <TableHead scope="col">Name</TableHead>
               <TableHead scope="col">Method</TableHead>
-              <TableHead scope="col" className="hidden sm:table-cell">Account</TableHead>
-              <TableHead scope="col" className="hidden md:table-cell">GL Category</TableHead>
-              <TableHead scope="col" className="text-right">Outstanding</TableHead>
+              <TableHead scope="col" className="hidden sm:table-cell">
+                Account
+              </TableHead>
+              <TableHead scope="col" className="hidden md:table-cell">
+                GL Category
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Outstanding
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {vendorList.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                  No vendors yet. Click "+ Add vendor" to create one.
+                <TableCell
+                  colSpan={5}
+                  className="py-10 text-center text-sm text-muted-foreground">
+                  No vendors yet. Click &ldquo;+ Add vendor&rdquo; to create
+                  one.
                 </TableCell>
               </TableRow>
             ) : (
@@ -98,20 +107,25 @@ export function VendorsTable({ initialVendors }: Props) {
                   tabIndex={0}
                   title="View outstanding bills"
                   onClick={() => router.push(`/bills?vendor=${v.id}`)}
-                  onKeyDown={(e) => e.key === 'Enter' && router.push(`/bills?vendor=${v.id}`)}
-                  className="cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 outline-none"
-                >
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && router.push(`/bills?vendor=${v.id}`)
+                  }
+                  className="cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 outline-none">
                   <TableCell className="py-3 font-medium">{v.name}</TableCell>
                   <TableCell className="py-3">
-                    <Badge variant={v.paymentMethod === 'ACH' ? 'secondary' : 'outline'} className="text-xs">
-                      {v.paymentMethod === 'ACH' ? 'ACH' : 'Check'}
+                    <Badge
+                      variant={
+                        v.paymentMethod === "ACH" ? "secondary" : "outline"
+                      }
+                      className="text-xs">
+                      {v.paymentMethod === "ACH" ? "ACH" : "Check"}
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell py-3 text-sm text-muted-foreground font-mono">
                     {accountSummary(v)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell py-3 text-sm text-muted-foreground">
-                    {v.defaultGlCategory ?? '—'}
+                    {v.defaultGlCategory ?? "—"}
                   </TableCell>
                   <TableCell className="py-3 text-right tabular-nums text-sm">
                     {outstandingLabel(v.outstandingCount, v.outstandingCents)}

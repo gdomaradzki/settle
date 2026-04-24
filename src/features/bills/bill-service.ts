@@ -15,8 +15,7 @@ import type { CreateBillInput, UpdateBillInput, ListBillsInput } from './schemas
 
 // ─── Inner helpers (take a tx client — safe to compose in one transaction) ───
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Tx = any;
+type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
 
 async function createBillInner(tx: Tx, input: CreateBillInput, actorId: string): Promise<Bill> {
   const bill = await tx.bill.create({
@@ -37,7 +36,7 @@ async function createBillInner(tx: Tx, input: CreateBillInput, actorId: string):
 
   if (input.lineItems.length > 0) {
     await tx.billLineItem.createMany({
-      data: input.lineItems.map((li: { description: string; amountCents: number; type?: string }) => ({
+      data: input.lineItems.map((li) => ({
         billId: bill.id,
         description: li.description,
         amountCents: li.amountCents,

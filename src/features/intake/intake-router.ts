@@ -1,8 +1,8 @@
-import 'server-only';
-import { z } from 'zod';
-import { router, protectedProcedure } from '@/server/trpc';
-import { extractInvoiceData } from './services/extract-invoice-data';
-import { storeInvoicePdf } from './services/store-invoice-pdf';
+import "server-only";
+import { z } from "zod";
+import { router, protectedProcedure } from "@/server/trpc";
+import { extractInvoiceData } from "./services/extract-invoice-data";
+import { storeInvoicePdf } from "./services/store-invoice-pdf";
 
 export const intakeRouter = router({
   extractFromPdf: protectedProcedure

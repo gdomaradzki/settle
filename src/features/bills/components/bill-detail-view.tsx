@@ -1,15 +1,15 @@
-'use client';
-import Link from 'next/link';
-import { ArrowLeftIcon } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { trpc } from '@/lib/trpc-client';
-import { useCurrentUser } from '@/hooks/use-current-user';
-import { BillStatusPill } from './bill-status-pill';
-import { BillPdfViewer } from './bill-pdf-viewer';
-import { BillFields } from './bill-fields';
-import { BillActionBar } from './bill-action-bar';
-import { BillActivityTimeline } from './bill-activity-timeline';
-import type { BillWithRelations } from '../bill-service';
+"use client";
+import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { trpc } from "@/lib/trpc-client";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { BillStatusPill } from "./bill-status-pill";
+import { BillPdfViewer } from "./bill-pdf-viewer";
+import { BillFields } from "./bill-fields";
+import { BillActionBar } from "./bill-action-bar";
+import { BillActivityTimeline } from "./bill-activity-timeline";
+import type { BillWithRelations } from "../bill-service";
 
 interface Props {
   initialBill: BillWithRelations;
@@ -29,15 +29,16 @@ export function BillDetailView({ initialBill }: Props) {
       <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
         <Link
           href="/bills"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeftIcon className="size-3.5" />
           Back to bills
         </Link>
         <div className="flex items-center gap-3">
           <BillStatusPill status={bill.status} />
           {bill.invoiceNumber && (
-            <span className="text-sm font-medium text-foreground">{bill.invoiceNumber}</span>
+            <span className="text-sm font-medium text-foreground">
+              {bill.invoiceNumber}
+            </span>
           )}
         </div>
       </div>

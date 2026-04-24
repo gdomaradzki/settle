@@ -1,24 +1,26 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { SearchIcon } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { useDebounce } from '@/hooks/use-debounce';
-import { useBillFilters } from '../hooks/use-bill-filters';
+"use client";
+import { useEffect, useState } from "react";
+import { SearchIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
+import { useBillFilters } from "../hooks/use-bill-filters";
 
 export function BillsSearch() {
   const { filters, setFilter } = useBillFilters();
   const [draft, setDraft] = useState(filters.q);
+  const [prevQ, setPrevQ] = useState(filters.q);
   const debounced = useDebounce(draft, 200);
 
-  useEffect(() => {
-    setFilter('q', debounced);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounced]);
-
-  // Sync if URL param changes externally (e.g. clearAll)
-  useEffect(() => {
+  // Sync draft when the URL param changes externally (e.g. clearAll)
+  // Using derived-state pattern to avoid setState-in-effect
+  if (prevQ !== filters.q) {
+    setPrevQ(filters.q);
     setDraft(filters.q);
-  }, [filters.q]);
+  }
+
+  useEffect(() => {
+    setFilter("q", debounced);
+  }, [debounced, setFilter]);
 
   return (
     <div className="relative">

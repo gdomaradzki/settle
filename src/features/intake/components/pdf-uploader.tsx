@@ -1,14 +1,18 @@
-'use client';
-import { useRef, useState } from 'react';
-import { UploadCloudIcon, XIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { trpc } from '@/lib/trpc-client';
-import { cn } from '@/lib/utils';
-import type { InvoiceExtraction } from '../schemas';
+"use client";
+import { useRef, useState } from "react";
+import { UploadCloudIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
+import { trpc } from "@/lib/trpc-client";
+import { cn } from "@/lib/utils";
+import type { InvoiceExtraction } from "../schemas";
 
 interface Props {
   onFileSelected?: (localUrl: string, filename: string) => void;
-  onExtracted: (extraction: InvoiceExtraction, filename: string, pdfUrl: string | null) => void;
+  onExtracted: (
+    extraction: InvoiceExtraction,
+    filename: string,
+    pdfUrl: string | null,
+  ) => void;
 }
 
 export function PdfUploader({ onFileSelected, onExtracted }: Props) {
@@ -17,20 +21,21 @@ export function PdfUploader({ onFileSelected, onExtracted }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extract = trpc.intake.extractFromPdf.useMutation({
-    onSuccess: (data, vars) => onExtracted(data.extraction, vars.filename, data.pdfUrl),
+    onSuccess: (data, vars) =>
+      onExtracted(data.extraction, vars.filename, data.pdfUrl),
     onError: (err) => {
       setError(err.message);
-      toast.error('Extraction failed: ' + err.message);
+      toast.error("Extraction failed: " + err.message);
     },
   });
 
   function processFile(file: File) {
-    if (file.type !== 'application/pdf') {
-      setError('Only PDF files are supported.');
+    if (file.type !== "application/pdf") {
+      setError("Only PDF files are supported.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('PDF is too large. Please upload a file under 10 MB.');
+      toast.error("PDF is too large. Please upload a file under 10 MB.");
       return;
     }
     setError(null);
@@ -42,7 +47,7 @@ export function PdfUploader({ onFileSelected, onExtracted }: Props) {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1];
+      const base64 = dataUrl.split(",")[1];
       extract.mutate({ pdfBase64: base64, filename: file.name });
     };
     reader.readAsDataURL(file);
@@ -58,32 +63,41 @@ export function PdfUploader({ onFileSelected, onExtracted }: Props) {
   return (
     <div className="w-full">
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
         className={cn(
-          'relative flex cursor-pointer flex-col items-center justify-center gap-4',
-          'rounded-xl border-2 border-dashed px-8 py-16 text-center transition-colors',
+          "relative flex cursor-pointer flex-col items-center justify-center gap-4",
+          "rounded-xl border-2 border-dashed px-8 py-16 text-center transition-colors",
           isDragging
-            ? 'border-foreground/40 bg-muted/60'
-            : 'border-border bg-muted/20 hover:border-foreground/30 hover:bg-muted/40',
-          error && 'border-destructive/50',
-        )}
-      >
+            ? "border-foreground/40 bg-muted/60"
+            : "border-border bg-muted/20 hover:border-foreground/30 hover:bg-muted/40",
+          error && "border-destructive/50",
+        )}>
         <input
           ref={inputRef}
           type="file"
           accept="application/pdf"
           className="sr-only"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) processFile(f);
+          }}
         />
 
         {extract.isPending ? (
           <>
             <div className="size-12 animate-spin rounded-full border-2 border-border border-t-foreground" />
-            <p className="text-sm font-medium text-foreground">Extracting invoice data…</p>
-            <p className="text-xs text-muted-foreground">This takes a few seconds</p>
+            <p className="text-sm font-medium text-foreground">
+              Extracting invoice data…
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This takes a few seconds
+            </p>
           </>
         ) : (
           <>
@@ -91,12 +105,19 @@ export function PdfUploader({ onFileSelected, onExtracted }: Props) {
               <UploadCloudIcon className="size-7 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">Drop invoice PDF here</p>
+              <p className="text-sm font-semibold text-foreground">
+                Drop invoice PDF here
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                or <span className="underline underline-offset-2">click to browse</span>
+                or{" "}
+                <span className="underline underline-offset-2">
+                  click to browse
+                </span>
               </p>
             </div>
-            <p className="text-xs text-muted-foreground">PDF only · max 10 MB</p>
+            <p className="text-xs text-muted-foreground">
+              PDF only · max 10 MB
+            </p>
           </>
         )}
       </div>

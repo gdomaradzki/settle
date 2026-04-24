@@ -1,41 +1,49 @@
-'use client';
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { toast } from 'sonner';
-import { trpc } from '@/lib/trpc-client';
+"use client";
+import { useEffect } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { trpc } from "@/lib/trpc-client";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Must be a valid email').optional().or(z.literal('')),
-  paymentMethod: z.enum(['ACH', 'CHECK']),
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Must be a valid email").optional().or(z.literal("")),
+  paymentMethod: z.enum(["ACH", "CHECK"]),
   defaultGlCategory: z.string().optional(),
-  achAccountLast4: z.string().regex(/^\d{4}$/, 'Must be exactly 4 digits').optional().or(z.literal('')),
-  achRoutingLast4: z.string().regex(/^\d{4}$/, 'Must be exactly 4 digits').optional().or(z.literal('')),
+  achAccountLast4: z
+    .string()
+    .regex(/^\d{4}$/, "Must be exactly 4 digits")
+    .optional()
+    .or(z.literal("")),
+  achRoutingLast4: z
+    .string()
+    .regex(/^\d{4}$/, "Must be exactly 4 digits")
+    .optional()
+    .or(z.literal("")),
   mailingAddress: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 const EMPTY: FormValues = {
-  name: '',
-  email: '',
-  paymentMethod: 'ACH',
-  defaultGlCategory: '',
-  achAccountLast4: '',
-  achRoutingLast4: '',
-  mailingAddress: '',
+  name: "",
+  email: "",
+  paymentMethod: "ACH",
+  defaultGlCategory: "",
+  achAccountLast4: "",
+  achRoutingLast4: "",
+  mailingAddress: "",
 };
 
 interface Props {
@@ -45,10 +53,15 @@ interface Props {
   initialName?: string;
 }
 
-export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: Props) {
+export function AddVendorDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  initialName,
+}: Props) {
   const {
     register,
-    watch,
+    control,
     reset,
     handleSubmit,
     formState: { errors },
@@ -58,12 +71,12 @@ export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: 
     defaultValues: EMPTY,
   });
 
-  const method = watch('paymentMethod');
+  const method = useWatch({ control, name: "paymentMethod" });
   const utils = trpc.useUtils();
 
   useEffect(() => {
     if (open) {
-      reset({ ...EMPTY, name: initialName ?? '' });
+      reset({ ...EMPTY, name: initialName ?? "" });
     }
   }, [open, initialName, reset]);
 
@@ -100,30 +113,40 @@ export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: 
           {/* Name — always visible */}
           <div className="space-y-1.5">
             <Label>Name</Label>
-            <Input placeholder="Vendor name" autoFocus {...register('name')} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            <Input placeholder="Vendor name" autoFocus {...register("name")} />
+            {errors.name && (
+              <p className="text-xs text-destructive">{errors.name.message}</p>
+            )}
           </div>
 
           {/* Email — always visible */}
           <div className="space-y-1.5">
             <Label>Email (optional)</Label>
-            <Input placeholder="billing@vendor.com" type="email" {...register('email')} />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            <Input
+              placeholder="billing@vendor.com"
+              type="email"
+              {...register("email")}
+            />
+            {errors.email && (
+              <p className="text-xs text-destructive">{errors.email.message}</p>
+            )}
           </div>
 
           {/* Payment method — always visible */}
           <div className="space-y-1.5">
             <Label>Payment method</Label>
             <div className="flex gap-4">
-              {(['ACH', 'CHECK'] as const).map((m) => (
-                <label key={m} className="flex cursor-pointer items-center gap-2 text-sm">
+              {(["ACH", "CHECK"] as const).map((m) => (
+                <label
+                  key={m}
+                  className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="radio"
                     value={m}
                     className="accent-foreground"
-                    {...register('paymentMethod')}
+                    {...register("paymentMethod")}
                   />
-                  {m === 'ACH' ? 'ACH' : 'Check'}
+                  {m === "ACH" ? "ACH" : "Check"}
                 </label>
               ))}
             </div>
@@ -132,52 +155,69 @@ export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: 
           {/* GL Category — always visible */}
           <div className="space-y-1.5">
             <Label>Default GL category (optional)</Label>
-            <Input placeholder="e.g. Infrastructure" {...register('defaultGlCategory')} />
+            <Input
+              placeholder="e.g. Infrastructure"
+              {...register("defaultGlCategory")}
+            />
           </div>
 
           {/* ACH fields — conditional */}
-          {method === 'ACH' && (
+          {method === "ACH" && (
             <>
               <div className="space-y-1.5">
                 <Label>Account last 4 (optional)</Label>
-                <Input placeholder="1234" maxLength={4} {...register('achAccountLast4')} />
+                <Input
+                  placeholder="1234"
+                  maxLength={4}
+                  {...register("achAccountLast4")}
+                />
                 {errors.achAccountLast4 && (
-                  <p className="text-xs text-destructive">{errors.achAccountLast4.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.achAccountLast4.message}
+                  </p>
                 )}
               </div>
               <div className="space-y-1.5">
                 <Label>Routing last 4 (optional)</Label>
-                <Input placeholder="5678" maxLength={4} {...register('achRoutingLast4')} />
+                <Input
+                  placeholder="5678"
+                  maxLength={4}
+                  {...register("achRoutingLast4")}
+                />
                 {errors.achRoutingLast4 && (
-                  <p className="text-xs text-destructive">{errors.achRoutingLast4.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.achRoutingLast4.message}
+                  </p>
                 )}
               </div>
             </>
           )}
 
           {/* Check field — conditional */}
-          {method === 'CHECK' && (
+          {method === "CHECK" && (
             <div className="space-y-1.5">
               <Label>Mailing address (optional)</Label>
               <textarea
                 rows={3}
                 placeholder="123 Main St, Anytown, USA 12345"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                {...register('mailingAddress')}
+                {...register("mailingAddress")}
               />
             </div>
           )}
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             disabled={createVendor.isPending}
-            onClick={handleSubmit(onSubmit)}
-          >
-            {createVendor.isPending ? 'Creating…' : 'Create vendor'}
+            onClick={handleSubmit(onSubmit)}>
+            {createVendor.isPending ? "Creating…" : "Create vendor"}
           </Button>
         </DialogFooter>
       </DialogContent>

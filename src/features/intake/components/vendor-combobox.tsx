@@ -1,8 +1,8 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react';
-import { trpc } from '@/lib/trpc-client';
-import { cn } from '@/lib/utils';
+"use client";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import { trpc } from "@/lib/trpc-client";
+import { cn } from "@/lib/utils";
 import {
   Command,
   CommandEmpty,
@@ -11,10 +11,14 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { buttonVariants } from '@/components/ui/button';
-import { AddVendorDialog } from '@/features/vendors/components/add-vendor-dialog';
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { buttonVariants } from "@/components/ui/button";
+import { AddVendorDialog } from "@/features/vendors/components/add-vendor-dialog";
 
 interface Props {
   value: string | null;
@@ -24,26 +28,53 @@ interface Props {
 
 export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
   const [open, setOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createInitialName, setCreateInitialName] = useState('');
-  const [search, setSearch] = useState('');
+  const [manualCreateOpen, setManualCreateOpen] = useState(false);
+  const [manualCreateName, setManualCreateName] = useState("");
+  const [search, setSearch] = useState("");
+  // Track which initialVendorName the user has already dismissed the auto-dialog for
+  const [dismissedName, setDismissedName] = useState<string | null>(null);
+
+  // Ref to call the latest onChange without it being an effect dependency
+  const onChangeRef = useRef(onChange);
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange;
+  });
 
   const { data: vendors } = trpc.vendor.list.useQuery();
 
-  // On mount, try to match the extracted vendor name
-  useEffect(() => {
-    if (!initialVendorName || !vendors) return;
-    const match = vendors.find(
+  // Derived: find the vendor matching initialVendorName (null if no match or not yet loaded)
+  const initialMatch = useMemo(() => {
+    if (!vendors || !initialVendorName) return undefined;
+    return vendors.find(
       (v) => v.name.toLowerCase() === initialVendorName.toLowerCase(),
     );
-    if (match) {
-      onChange(match.id);
-    } else if (initialVendorName) {
-      setCreateInitialName(initialVendorName);
-      setCreateOpen(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialVendorName, vendors]);
+
+  // Auto-select matched vendor via effect (calling external callback is a legitimate side effect)
+  useEffect(() => {
+    if (initialMatch) {
+      onChangeRef.current(initialMatch.id);
+    }
+  }, [initialMatch]);
+
+  // Derived: name to pre-fill in the create dialog when no vendor matches the extracted name
+  const autoCreateName =
+    vendors && initialVendorName && !initialMatch ? initialVendorName : null;
+  const autoCreateOpen =
+    autoCreateName !== null && autoCreateName !== dismissedName;
+
+  const createOpen = manualCreateOpen || autoCreateOpen;
+  const createInitialName = autoCreateOpen
+    ? (autoCreateName ?? "")
+    : manualCreateName;
+
+  function handleCreateOpenChange(open: boolean) {
+    if (!open && autoCreateOpen) {
+      // User dismissed the auto-open dialog — don't reopen for this name
+      setDismissedName(autoCreateName);
+    }
+    setManualCreateOpen(open);
+  }
 
   const selectedVendor = vendors?.find((v) => v.id === value);
   const filtered = vendors?.filter((v) =>
@@ -55,12 +86,11 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
       <Popover open={open} onOpenChange={(o) => setOpen(o)}>
         <PopoverTrigger
           className={cn(
-            buttonVariants({ variant: 'outline' }),
-            'w-full justify-between font-normal',
-            !selectedVendor && 'text-muted-foreground',
-          )}
-        >
-          {selectedVendor?.name ?? 'Select vendor…'}
+            buttonVariants({ variant: "outline" }),
+            "w-full justify-between font-normal",
+            !selectedVendor && "text-muted-foreground",
+          )}>
+          {selectedVendor?.name ?? "Select vendor…"}
           <ChevronsUpDownIcon className="ml-2 size-3.5 opacity-50" />
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" side="bottom" align="start">
@@ -81,12 +111,14 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
                     value={vendor.name}
                     onSelect={() => {
                       onChange(vendor.id);
-                      setSearch('');
+                      setSearch("");
                       setOpen(false);
-                    }}
-                  >
+                    }}>
                     <CheckIcon
-                      className={cn('mr-2 size-3.5', value === vendor.id ? 'opacity-100' : 'opacity-0')}
+                      className={cn(
+                        "mr-2 size-3.5",
+                        value === vendor.id ? "opacity-100" : "opacity-0",
+                      )}
                     />
                     {vendor.name}
                   </CommandItem>
@@ -96,13 +128,12 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
               <CommandGroup>
                 <CommandItem
                   onSelect={() => {
-                    setCreateInitialName(search);
+                    setManualCreateName(search);
                     setOpen(false);
-                    setCreateOpen(true);
-                  }}
-                >
+                    setManualCreateOpen(true);
+                  }}>
                   <PlusIcon className="mr-2 size-3.5" />
-                  Create new vendor{search ? ` "${search}"` : ''}
+                  Create new vendor{search ? ` &ldquo;${search}&rdquo;` : ""}
                 </CommandItem>
               </CommandGroup>
             </CommandList>
@@ -112,7 +143,7 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
 
       <AddVendorDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={handleCreateOpenChange}
         initialName={createInitialName}
         onCreated={(v) => onChange(v.id)}
       />

@@ -1,28 +1,33 @@
-import 'server-only';
-import { initTRPC } from '@trpc/server';
-import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
-import superjson from 'superjson';
-import { db } from './db';
+import "server-only";
+import { initTRPC } from "@trpc/server";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import superjson from "superjson";
+import { db } from "./db";
 
 function getCookieValue(req: Request, name: string): string | undefined {
-  const header = req.headers.get('cookie') ?? '';
-  const match = header.split(';').map((c) => c.trim()).find((c) => c.startsWith(`${name}=`));
-  return match?.split('=').slice(1).join('=');
+  const header = req.headers.get("cookie") ?? "";
+  const match = header
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  return match?.split("=").slice(1).join("=");
 }
 
 async function getDefaultUser() {
-  return db.user.findFirstOrThrow({ where: { role: 'SUBMITTER' } });
+  return db.user.findFirstOrThrow({ where: { role: "SUBMITTER" } });
 }
 
 export async function resolveUser(userId?: string) {
   if (userId) {
-    return (await db.user.findUnique({ where: { id: userId } })) ?? getDefaultUser();
+    return (
+      (await db.user.findUnique({ where: { id: userId } })) ?? getDefaultUser()
+    );
   }
   return getDefaultUser();
 }
 
 export async function createContext({ req }: FetchCreateContextFnOptions) {
-  const userId = getCookieValue(req, 'settle-user-id');
+  const userId = getCookieValue(req, "settle-user-id");
   const user = await resolveUser(userId);
   return { user };
 }

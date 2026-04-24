@@ -1,7 +1,7 @@
-import { formatUSD } from '@/lib/money';
-import { SummaryTile } from './summary-tile';
-import { RecentActivity } from './recent-activity';
-import type { DashboardSummary } from '../dashboard-service';
+import { formatUSD } from "@/lib/money";
+import { SummaryTile } from "./summary-tile";
+import { RecentActivity } from "./recent-activity";
+import type { DashboardSummary } from "../dashboard-service";
 
 interface Props {
   summary: DashboardSummary;
@@ -13,9 +13,11 @@ export function DashboardView({ summary, userName }: Props) {
     <div className="mx-auto max-w-5xl space-y-10 px-6 py-8">
       {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Welcome, {userName}</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          Welcome, {userName}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Here's what's happening in your accounts payable today.
+          Here&apos;s what&apos;s happening in your accounts payable today.
         </p>
       </div>
 

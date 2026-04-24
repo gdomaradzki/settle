@@ -1,15 +1,15 @@
-'use client';
-import { useRef, useState } from 'react';
-import { ArrowLeftIcon } from 'lucide-react';
-import Link from 'next/link';
-import { PdfUploader } from './pdf-uploader';
-import { BillIntakeForm } from './bill-intake-form';
-import type { InvoiceExtraction } from '../schemas';
+"use client";
+import { useRef, useState } from "react";
+import { ArrowLeftIcon } from "lucide-react";
+import Link from "next/link";
+import { PdfUploader } from "./pdf-uploader";
+import { BillIntakeForm } from "./bill-intake-form";
+import type { InvoiceExtraction } from "../schemas";
 
-type Mode = 'choose' | 'form';
+type Mode = "choose" | "form";
 
 export function BillIntakePage() {
-  const [mode, setMode] = useState<Mode>('choose');
+  const [mode, setMode] = useState<Mode>("choose");
   const [extraction, setExtraction] = useState<InvoiceExtraction | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export function BillIntakePage() {
     localUrlRef.current = localUrl;
     setPreviewUrl(localUrl);
     setIsExtracting(true);
-    setMode('form');
+    setMode("form");
   }
 
   function handleExtracted(
@@ -45,7 +45,7 @@ export function BillIntakePage() {
       URL.revokeObjectURL(localUrlRef.current);
       localUrlRef.current = null;
     }
-    setMode('choose');
+    setMode("choose");
     setExtraction(null);
     setPreviewUrl(null);
     setPdfUrl(null);
@@ -58,15 +58,14 @@ export function BillIntakePage() {
       <div className="mb-8 flex items-center gap-4">
         <Link
           href="/bills"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeftIcon className="size-3.5" />
           Bills
         </Link>
         <h1 className="text-lg font-semibold text-foreground">New bill</h1>
       </div>
 
-      {mode === 'choose' ? (
+      {mode === "choose" ? (
         <div className="space-y-6">
           <PdfUploader
             onFileSelected={handleFileSelected}
@@ -82,9 +81,8 @@ export function BillIntakePage() {
           <div className="text-center">
             <button
               type="button"
-              onClick={() => setMode('form')}
-              className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
-            >
+              onClick={() => setMode("form")}
+              className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
               Enter manually
             </button>
           </div>

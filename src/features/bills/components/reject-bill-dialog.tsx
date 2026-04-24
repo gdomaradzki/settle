@@ -1,16 +1,16 @@
-'use client';
-import { useState } from 'react';
+"use client";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import type { BillWithRelations } from '../bill-service';
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import type { BillWithRelations } from "../bill-service";
 
 interface Props {
   bill: BillWithRelations;
@@ -20,8 +20,13 @@ interface Props {
   isPending?: boolean;
 }
 
-export function RejectBillDialog({ open, onOpenChange, onConfirm, isPending }: Props) {
-  const [reason, setReason] = useState('');
+export function RejectBillDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  isPending,
+}: Props) {
+  const [reason, setReason] = useState("");
   const isValid = reason.trim().length >= 3;
 
   function handleConfirm() {
@@ -47,20 +52,24 @@ export function RejectBillDialog({ open, onOpenChange, onConfirm, isPending }: P
             className="resize-none"
           />
           {reason.length > 0 && !isValid && (
-            <p className="text-xs text-destructive">Reason must be at least 3 characters.</p>
+            <p className="text-xs text-destructive">
+              Reason must be at least 3 characters.
+            </p>
           )}
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             variant="destructive"
             disabled={!isValid || isPending}
-            onClick={handleConfirm}
-          >
-            {isPending ? 'Rejecting…' : 'Reject bill'}
+            onClick={handleConfirm}>
+            {isPending ? "Rejecting…" : "Reject bill"}
           </Button>
         </DialogFooter>
       </DialogContent>

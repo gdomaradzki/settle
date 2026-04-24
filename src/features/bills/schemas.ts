@@ -1,9 +1,9 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 const lineItemInput = z.object({
   description: z.string().min(1),
   amountCents: z.number().int().positive(),
-  type: z.enum(['EXPENSE', 'ITEM']).optional(),
+  type: z.enum(["EXPENSE", "ITEM"]).optional(),
 });
 
 export const createBillInput = z.object({
@@ -40,11 +40,20 @@ export const rejectInput = z.object({
 export const scheduleInput = z.object({
   billId: z.string(),
   payDate: z.coerce.date(),
-  method: z.enum(['ACH', 'CHECK']),
+  method: z.enum(["ACH", "CHECK"]),
 });
 
 export const listBillsInput = z.object({
-  status: z.enum(['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SCHEDULED', 'PAID', 'REJECTED']).optional(),
+  status: z
+    .enum([
+      "DRAFT",
+      "PENDING_APPROVAL",
+      "APPROVED",
+      "SCHEDULED",
+      "PAID",
+      "REJECTED",
+    ])
+    .optional(),
   dueBefore: z.coerce.date().optional(),
   needsMyApproval: z.boolean().optional(),
   search: z.string().optional(),
