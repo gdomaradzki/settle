@@ -1,7 +1,12 @@
-export default function VendorsPage() {
-  return (
-    <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
-      <p className="text-sm">Vendors coming soon</p>
-    </div>
-  );
+import type { Metadata } from 'next';
+import { createServerCaller } from '@/server/root-router';
+import { VendorsTable, type VendorWithOutstanding } from '@/features/vendors/components/vendors-table';
+
+export const metadata: Metadata = { title: 'Vendors — Settle' };
+
+export default async function VendorsPage() {
+  const caller = await createServerCaller();
+  const vendors = (await caller.vendor.list()) as unknown as VendorWithOutstanding[];
+
+  return <VendorsTable initialVendors={vendors} />;
 }

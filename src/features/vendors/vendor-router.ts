@@ -4,18 +4,35 @@ import { router, publicProcedure, protectedProcedure } from '@/server/trpc';
 import { db } from '@/server/db';
 
 export const vendorRouter = router({
-  list: publicProcedure.query(() =>
-    db.vendor.findMany({
+  list: publicProcedure.query(async () => {
+    const vendors = await db.vendor.findMany({
       orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        paymentMethod: true,
-        defaultGlCategory: true,
+      include: {
+        bills: {
+          where: { status: { in: ['PENDING_APPROVAL', 'APPROVED', 'SCHEDULED'] } },
+          select: { amountCents: true },
+        },
       },
-    }),
-  ),
+    });
+
+    type RawVendor = (typeof vendors)[number];
+    return (vendors as RawVendor[]).map((v) => ({
+      id: v.id,
+      name: v.name,
+      email: v.email,
+      paymentMethod: v.paymentMethod,
+      achAccountLast4: v.achAccountLast4,
+      achRoutingLast4: v.achRoutingLast4,
+      mailingAddress: v.mailingAddress,
+      defaultGlCategory: v.defaultGlCategory,
+      createdAt: v.createdAt,
+      outstandingCount: (v.bills as { amountCents: number }[]).length,
+      outstandingCents: (v.bills as { amountCents: number }[]).reduce(
+        (s, b) => s + b.amountCents,
+        0,
+      ),
+    }));
+  }),
 
   create: protectedProcedure
     .input(
