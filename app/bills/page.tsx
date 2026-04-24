@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, UploadIcon } from 'lucide-react';
 import { BillsFilterSidebar } from '@/features/bills/components/bills-filter-sidebar';
 import { BillsSearch } from '@/features/bills/components/bills-search';
 import { BillsTable } from '@/features/bills/components/bills-table';
@@ -24,6 +24,13 @@ export default function BillsPage() {
             <Suspense>
               <BillsSearch />
             </Suspense>
+            <Link
+              href="/bills/upload-csv"
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted shrink-0"
+            >
+              <UploadIcon className="size-3.5" />
+              Upload CSV
+            </Link>
             <Link
               href="/bills/new"
               className="flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-colors hover:bg-foreground/90 shrink-0"

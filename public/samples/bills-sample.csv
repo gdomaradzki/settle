@@ -1,0 +1,6 @@
+﻿vendor_name,invoice_number,amount,issue_date,due_date,memo,gl_category,line_description,line_amount,line_type
+AWS,AWS-2026-Q2-001,8423.00,2026-04-01,2026-05-01,Q2 infrastructure,Infrastructure,EC2 compute + S3 storage,,EXPENSE
+WeWork,WW-2026-05,7800.00,2026-05-01,2026-05-31,May office space,Rent & Occupancy,Private office suite - Suite 4B,7800.00,EXPENSE
+Latham & Watkins LLP,LW-2026-INV-050,2500.00,2026-04-10,2026-05-10,Contract review,Legal,Contract review and redline,,EXPENSE
+Notion Labs,NTN-2026-Q2,450.00,2026-04-15,2026-05-15,Team plan Q2,Software & SaaS,Notion Team Plan 15 seats,450,EXPENSE
+Marcus Lee Design,MLD-2026-012,1200,2026-04-20,2026-05-20,Brand assets,Design & Creative,Logo variants and brand guide,,ITEM

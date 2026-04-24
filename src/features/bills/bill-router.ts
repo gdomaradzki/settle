@@ -60,4 +60,8 @@ export const billRouter = router({
   pay: protectedProcedure
     .input(z.string())
     .mutation(({ input, ctx }) => svc.payBill(input, ctx.user.id).catch(mapError)),
+
+  createMany: protectedProcedure
+    .input(z.array(createBillInput).min(1).max(100))
+    .mutation(({ input, ctx }) => svc.createManyBills(input, ctx.user.id)),
 });

@@ -268,3 +268,47 @@ export async function getBill(billId: string): Promise<BillWithRelations> {
   });
   return row as unknown as BillWithRelations;
 }
+
+export async function createManyBills(
+  inputs: CreateBillInput[],
+  actorId: string,
+): Promise<{ created: number }> {
+  return db.$transaction(async (tx) => {
+    let count = 0;
+    for (const input of inputs) {
+      const bill = await tx.bill.create({
+        data: {
+          vendorId: input.vendorId,
+          invoiceNumber: input.invoiceNumber,
+          amountCents: input.amountCents,
+          currency: 'USD',
+          issueDate: input.issueDate,
+          dueDate: input.dueDate,
+          memo: input.memo,
+          glCategory: input.glCategory,
+          pdfPath: null,
+          status: 'DRAFT',
+          createdById: actorId,
+        },
+      });
+
+      if (input.lineItems.length > 0) {
+        await tx.billLineItem.createMany({
+          data: input.lineItems.map((li) => ({
+            billId: bill.id,
+            description: li.description,
+            amountCents: li.amountCents,
+            type: li.type ?? 'EXPENSE',
+          })),
+        });
+      }
+
+      await tx.billEvent.create({
+        data: { billId: bill.id, type: 'created', actorId, payload: { source: 'csv' } },
+      });
+
+      count++;
+    }
+    return { created: count };
+  });
+}
