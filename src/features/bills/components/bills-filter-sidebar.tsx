@@ -1,6 +1,4 @@
 'use client';
-import { useState } from 'react';
-import { SlidersHorizontalIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trpc } from '@/lib/trpc-client';
 import { useBillFilters, type DueWindow } from '../hooks/use-bill-filters';
@@ -55,13 +53,10 @@ function RadioItem({
 
 export function BillsFilterSidebar() {
   const { filters, setFilter, clearAll, hasFilters } = useBillFilters();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { data: vendors } = trpc.vendor.list.useQuery();
 
-  const activeCount = [filters.status, filters.due, filters.mine, filters.q, filters.vendor].filter(Boolean).length;
-
-  const filterContent = (
-    <>
+  return (
+    <div className="flex flex-col gap-5 pl-4 pr-5 py-5">
       <fieldset className="flex flex-col gap-1">
         <legend className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
           Status
@@ -119,7 +114,6 @@ export function BillsFilterSidebar() {
         </label>
       </fieldset>
 
-      {/* Vendor filter */}
       <fieldset className="flex flex-col gap-1">
         <legend className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
           Vendor
@@ -147,44 +141,6 @@ export function BillsFilterSidebar() {
           Clear all filters
         </button>
       )}
-    </>
-  );
-
-  return (
-    <>
-      {/* Mobile toggle button — hidden on md+ */}
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2 md:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileOpen((o) => !o)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <SlidersHorizontalIcon className="size-3.5" />
-          <span>Filters</span>
-          {activeCount > 0 && (
-            <span className="flex size-4 items-center justify-center rounded-full bg-foreground text-[10px] font-medium text-background">
-              {activeCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Mobile panel — animated via grid-rows collapse */}
-      <div
-        className={cn(
-          'grid md:hidden transition-[grid-template-rows] duration-200 ease-in-out border-b border-border',
-          mobileOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-        )}
-      >
-        <div className="overflow-hidden">
-          <div className="flex flex-col gap-5 pl-4 pr-5 py-5">{filterContent}</div>
-        </div>
-      </div>
-
-      {/* Desktop sidebar — always visible */}
-      <aside className="hidden md:flex w-56 shrink-0 flex-col gap-5 border-r border-border pl-4 pr-5 py-5">
-        {filterContent}
-      </aside>
-    </>
+    </div>
   );
 }
