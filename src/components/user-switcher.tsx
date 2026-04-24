@@ -63,11 +63,13 @@ export function UserSwitcher() {
             {initials(current.name)}
           </AvatarFallback>
         </Avatar>
-        <span className="font-medium text-foreground">{current.name}</span>
-        <span className="text-xs text-muted-foreground">
-          {ROLE_LABEL[current.role] ?? current.role}
+        <span className="hidden sm:flex items-center gap-1.5">
+          <span className="font-medium text-foreground">{current.name}</span>
+          <span className="text-xs text-muted-foreground">
+            {ROLE_LABEL[current.role] ?? current.role}
+          </span>
+          <ChevronDownIcon className="size-3.5 text-muted-foreground" />
         </span>
-        <ChevronDownIcon className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-52">

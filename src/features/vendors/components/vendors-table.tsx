@@ -62,7 +62,7 @@ export function VendorsTable({ initialVendors }: Props) {
   const vendorList = (vendors ?? initialVendors) as VendorWithOutstanding[];
 
   return (
-    <div className="space-y-5 px-6 py-5">
+    <div className="mx-auto max-w-5xl space-y-5 px-6 py-5">
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold text-foreground">Vendors</h1>
