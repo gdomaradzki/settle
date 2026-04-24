@@ -1,7 +1,20 @@
-export default function DashboardPage() {
+import type { Metadata } from 'next';
+import { createServerCaller } from '@/server/root-router';
+import { DashboardView } from '@/features/dashboard/components/dashboard-view';
+
+export const metadata: Metadata = { title: 'Dashboard — Settle' };
+
+export default async function DashboardPage() {
+  const caller = await createServerCaller();
+  const [summary, user] = await Promise.all([
+    caller.dashboard.summary(),
+    caller.user.current(),
+  ]);
+
   return (
-    <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
-      <p className="text-sm">Dashboard coming soon</p>
-    </div>
+    <DashboardView
+      summary={summary}
+      userName={(user as { name: string }).name ?? 'there'}
+    />
   );
 }
