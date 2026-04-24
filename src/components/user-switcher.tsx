@@ -39,7 +39,7 @@ export function UserSwitcher() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
-      await utils.user.current.invalidate();
+      await utils.invalidate();
       router.refresh();
     } catch (e) {
       console.error('Failed to switch user', e);

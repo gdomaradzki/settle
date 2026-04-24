@@ -1,6 +1,8 @@
 import 'server-only';
-import type { Bill } from '@/generated/prisma/client';
+import type { Bill, Vendor } from '@/generated/prisma/client';
 import type { BillStatus, PaymentMethod } from '@/generated/prisma/enums';
+
+export type BillWithVendor = Bill & { vendor: Vendor };
 import { db } from '@/server/db';
 import { requiresApproval } from '@/features/approvals/approval-rules';
 import { InvalidTransitionError, UnauthorizedError } from './errors';
@@ -217,13 +219,13 @@ export async function payBill(billId: string, actorId: string): Promise<Bill> {
   });
 }
 
-export async function listBills(input: ListBillsInput, actorId: string) {
+export async function listBills(input: ListBillsInput, actorId: string): Promise<BillWithVendor[]> {
   if (input.needsMyApproval) {
     const actor = await db.user.findUnique({ where: { id: actorId } });
     if (!actor || actor.role !== 'APPROVER') return [];
   }
 
-  return db.bill.findMany({
+  const rows = await db.bill.findMany({
     where: {
       ...(input.needsMyApproval
         ? { status: 'PENDING_APPROVAL' }
@@ -244,6 +246,8 @@ export async function listBills(input: ListBillsInput, actorId: string) {
     include: { vendor: true },
     orderBy: { dueDate: 'asc' },
   });
+  // Prisma 7's @ts-nocheck generated files lose the `include` type — cast explicitly
+  return rows as unknown as BillWithVendor[];
 }
 
 export async function getBill(billId: string) {
