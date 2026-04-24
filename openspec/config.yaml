@@ -1,0 +1,203 @@
+schema: spec-driven
+
+context: |
+  # Settle — Project Context
+
+  An accounts payable (AP) product inspired by Ramp Bill Pay. Settle moves a
+  bill through its lifecycle from intake to paid, with approval routing in
+  between.
+
+  ## Domains
+
+  The system is organized into these domains. Specs under `openspec/specs/`
+  mirror this taxonomy.
+
+  | Domain       | Responsibility                                                                                     |
+  |--------------|-----------------------------------------------------------------------------------------------------|
+  | `bills`      | The bill record and its status machine                                                              |
+  | `vendors`    | Vendor records referenced by bills                                                                  |
+  | `users`      | Users, roles, and the fake session switcher                                                         |
+  | `approvals`  | Threshold-based approval routing                                                                    |
+  | `payments`   | Scheduling and (simulated) execution of payments                                                    |
+  | `dashboard`  | Summary tiles and recent activity feed                                                              |
+  | `intake`     | Bill creation across three paths: manual form, PDF upload + LLM extraction, CSV bulk upload        |
+  | `reports`    | AP aging report (outstanding bills bucketed by days past due)                                       |
+
+  ## Tech stack
+
+  - Framework: Next.js 16 (App Router) + TypeScript
+  - API: tRPC — end-to-end types, no OpenAPI codegen
+  - DB: PostgreSQL via Neon (Vercel Postgres Marketplace integration)
+  - ORM: Prisma, using both pooled (`DATABASE_URL`) and direct
+    (`DATABASE_URL_UNPOOLED`) connection strings
+  - UI: Tailwind + shadcn/ui
+  - Forms: react-hook-form + zod (schemas shared with tRPC)
+  - Icons: lucide-react
+  - LLM extraction: `@anthropic-ai/sdk` — Claude accepts PDFs as native
+    document input for invoice field extraction. Gracefully falls back to
+    canned sample data keyed by filename when `ANTHROPIC_API_KEY` is unset,
+    so local dev and Vercel deploys both work without a key.
+  - CSV parsing: `papaparse` for bulk bill upload (client-side parse +
+    per-row zod validation before server-side batch insert).
+  - Deploy target: Vercel. Dev and prod share one Neon database for the
+    MVP; `vercel env pull` syncs env vars locally.
+  - PDF handling: uploaded files are passed through Claude's PDF input for
+    extraction but are not persisted to disk (Vercel's serverless
+    filesystem is ephemeral). For display on the bill detail page, the
+    `Bill.pdfPath` column points to a canned sample under `/public/samples/`
+    matched to the vendor. In production this would be swapped for Vercel
+    Blob; the MVP avoids that dependency deliberately.
+
+  No separate backend service. Next.js + tRPC covers the API surface.
+  No local database; Neon replaces the Docker Postgres that earlier drafts used.
+
+  ## Core domain rules
+
+  These are load-bearing. Break any and the system stops being trustworthy.
+
+  1. **All money is stored as `Int` cents.** Floats are never used for
+     monetary values.
+  2. **USD only.** A `currency` column exists for future-proofing but is
+     hardcoded "USD".
+  3. **Bill status is a strict lifecycle:**
+     DRAFT → PENDING_APPROVAL → APPROVED → SCHEDULED → PAID, with REJECTED
+     as a terminal branch from PENDING_APPROVAL. Transitions happen only
+     through the bill service. No direct status writes from routers or UI.
+  4. **Approval threshold:** bills with `amountCents >= 500_000` (= $5,000)
+     require an APPROVER. Below the threshold, `submit` transitions straight
+     to APPROVED. The threshold lives in one constant:
+     `APPROVAL_THRESHOLD_CENTS`.
+  5. **Every status transition writes a `BillEvent`.** The events table is
+     the audit log and the source of the per-bill timeline UI.
+  6. **Partially simulated rails:**
+     - **OCR is real.** PDF uploads are parsed by Claude via
+       `@anthropic-ai/sdk`. When `ANTHROPIC_API_KEY` is unset, extraction
+       falls back to canned sample data keyed by filename so the flow is
+       demoable with no external dependency.
+     - **Payment execution is simulated.** `Send Payment` flips status to
+       `PAID` and stamps a fake confirmation number. No real ACH or check
+       rails.
+     - **Auth is simulated.** A user switcher in the top bar swaps between
+       the seeded submitter and approver. No passwords, no sessions, no
+       multi-tenancy.
+
+  ## Code conventions
+
+  ### File and module naming
+
+  - All source filenames are kebab-case: `bill-service.ts`, `top-bar.tsx`,
+    `use-bill-filters.ts`. Not camelCase, not PascalCase. The only
+    exceptions are framework-required filenames (Next.js `page.tsx`,
+    `layout.tsx`, `route.ts`, etc.).
+  - Hook files start with `use-`: `use-debounce.ts`, `use-session.ts`. The
+    hook export itself uses standard camelCase: `export function useDebounce()`.
+  - Avoid `export default`. Use named exports so imports are greppable and
+    refactors are safe. The only acceptable exceptions are where a
+    framework requires a default export (Next.js page/layout/route files,
+    middleware).
+
+  ### Project structure — domain-driven
+
+  Each domain is self-contained: its components, hooks, server service,
+  tRPC router, and schemas live together under `src/features/[domain]/`.
+
+  ```
+  src/
+  ├── app/                              # Next.js App Router routes
+  │   ├── layout.tsx
+  │   ├── page.tsx
+  │   └── bills/[id]/page.tsx
+  ├── components/                       # Cross-feature UI
+  │   └── ui/                           # shadcn primitives (CLI default path)
+  ├── features/
+  │   └── [domain]/                     # bills, vendors, users, approvals,
+  │       ├── components/               # payments, dashboard, intake, reports
+  │       ├── hooks/
+  │       ├── [domain]-service.ts       # server-only domain logic
+  │       ├── [domain]-router.ts        # tRPC router
+  │       └── schemas.ts                # zod input/output schemas
+  ├── hooks/                            # Cross-feature hooks
+  ├── lib/                              # Framework-agnostic utilities
+  │   └── money.ts                      # formatUSD(cents)
+  └── server/                           # Server-only bootstrapping
+      ├── db.ts                         # Prisma singleton (HMR-safe)
+      ├── trpc.ts                       # tRPC setup
+      └── root-router.ts                # Composes all feature routers
+  ```
+
+  ### Server-only enforcement
+
+  Files that must never ship to the client begin with:
+  ```ts
+  import 'server-only';
+  ```
+  This applies to `src/server/db.ts`, every `[domain]-service.ts`, every
+  `[domain]-router.ts`, and anything else that touches the database or
+  secrets. A mistaken client import becomes a build error.
+
+  ### Specific placements
+
+  - Bill state machine: `src/features/bills/bill-service.ts` exclusively.
+    Routers call into it; they never mutate `Bill.status` directly.
+  - Shared zod schemas live inside the feature that owns them
+    (`src/features/bills/schemas.ts`, etc.). Cross-feature types go in
+    `src/lib/types.ts`.
+  - Money formatting: `src/lib/money.ts`. `formatUSD(cents)` is the only
+    way money reaches the UI.
+  - Dates: store as `DateTime` (UTC). Format at the edge.
+
+  ## Out of scope (deliberate)
+
+  Called out so nothing is mistaken for missing work:
+
+  - Real payment rails (ACH/check execution is a status flip + fake confirmation)
+  - Accounting sync (QuickBooks, NetSuite, Xero)
+  - Multi-entity, multi-currency
+  - Real auth, multi-tenancy (fake user switcher instead)
+  - Email-to-bill ingestion (@ap.settle.com inbox)
+  - Line item splits and allocation templates (allocating one line across
+    multiple cost centers/departments) — meaningful implementation cost,
+    demo-invisible unless the evaluator opens a split modal. Called out
+    explicitly in the README with an explanation of the feature.
+  - Recurring bill payments (scheduled recurrence, idempotency keys)
+  - PO matching, duplicate detection, W-9 collection, vendor onboarding flows
+  - Audit exports, notifications, complex rules engine
+
+  ## Personas
+
+  - Gus Silva (SUBMITTER): creates bills, submits them, schedules payments
+    after approval.
+  - Ada Chen (APPROVER, CFO): reviews bills over the threshold, approves
+    or rejects.
+
+  The top bar has a user switcher to move between them during a demo.
+
+rules:
+  proposal:
+    - Lead with a "Why" section that names what this change unblocks
+    - Use ADDED / MODIFIED / REMOVED markers explicitly in the "What changes" section
+    - Include measurable Success criteria (commands that should succeed, visible outcomes)
+    - Call out "What this change does NOT do" to keep scope honest
+
+  design:
+    - Every non-obvious schema or architectural decision must carry a rationale
+    - Prefer denormalization for dashboard-critical queries; document the tradeoff
+    - All monetary fields are `Int` cents. There are no exceptions.
+    - State transitions happen only through `bill-service.ts` in `src/features/bills/`; do not design around that rule
+    - Filenames are kebab-case (`bill-service.ts`, not `billService.ts` or `BillService.ts`). Hook files start with `use-`.
+    - Avoid `export default` except where a framework requires it (Next.js page/layout/route files).
+    - Domain code lives under `src/features/[domain]/` with co-located components, hooks, service, router, and schemas. Server-only files begin with `import 'server-only';`.
+
+  specs:
+    - Organize by domain (bills, vendors, users, approvals, payments, dashboard, intake)
+    - Use SHALL / SHALL NOT / MAY for normative requirements
+    - Every non-trivial requirement includes at least one GIVEN / WHEN / THEN scenario
+    - Reference existing requirements by name when modifying them; do not redefine
+
+  tasks:
+    - Each task must be independently reviewable — no catch-all "implement the feature" tasks
+    - Group tasks by phase (Infrastructure → Schema → Service → UI → Verification)
+    - Include a Verification subsection with concrete, runnable commands
+    - Mark the Definition of Done at the bottom
+    - Use kebab-case when listing files to create (`bill-service.ts`, `use-bill-filters.ts`); hooks start with `use-`.
+    - Place domain files under `src/features/[domain]/`; place server-only bootstrap (`db.ts`, `trpc.ts`, `root-router.ts`) under `src/server/`.
