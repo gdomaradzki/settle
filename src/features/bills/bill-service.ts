@@ -1,8 +1,13 @@
 import 'server-only';
-import type { Bill, Vendor } from '@/generated/prisma/client';
+import type { Bill, Vendor, BillLineItem, BillEvent } from '@/generated/prisma/client';
 import type { BillStatus, PaymentMethod } from '@/generated/prisma/enums';
 
 export type BillWithVendor = Bill & { vendor: Vendor };
+export type BillWithRelations = Bill & {
+  vendor: Vendor;
+  lineItems: BillLineItem[];
+  events: BillEvent[];
+};
 import { db } from '@/server/db';
 import { requiresApproval } from '@/features/approvals/approval-rules';
 import { InvalidTransitionError, UnauthorizedError } from './errors';
@@ -250,8 +255,8 @@ export async function listBills(input: ListBillsInput, actorId: string): Promise
   return rows as unknown as BillWithVendor[];
 }
 
-export async function getBill(billId: string) {
-  return db.bill.findUniqueOrThrow({
+export async function getBill(billId: string): Promise<BillWithRelations> {
+  const row = await db.bill.findUniqueOrThrow({
     where: { id: billId },
     include: {
       vendor: true,
@@ -259,4 +264,5 @@ export async function getBill(billId: string) {
       events: { orderBy: { createdAt: 'asc' } },
     },
   });
+  return row as unknown as BillWithRelations;
 }

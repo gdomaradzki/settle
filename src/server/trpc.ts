@@ -14,11 +14,16 @@ async function getDefaultUser() {
   return db.user.findFirstOrThrow({ where: { role: 'SUBMITTER' } });
 }
 
+export async function resolveUser(userId?: string) {
+  if (userId) {
+    return (await db.user.findUnique({ where: { id: userId } })) ?? getDefaultUser();
+  }
+  return getDefaultUser();
+}
+
 export async function createContext({ req }: FetchCreateContextFnOptions) {
   const userId = getCookieValue(req, 'settle-user-id');
-  const user = userId
-    ? ((await db.user.findUnique({ where: { id: userId } })) ?? (await getDefaultUser()))
-    : await getDefaultUser();
+  const user = await resolveUser(userId);
   return { user };
 }
 
