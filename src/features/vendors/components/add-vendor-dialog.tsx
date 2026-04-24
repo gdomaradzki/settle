@@ -1,5 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc-client';
 import {
@@ -13,6 +16,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Must be a valid email').optional().or(z.literal('')),
+  paymentMethod: z.enum(['ACH', 'CHECK']),
+  defaultGlCategory: z.string().optional(),
+  achAccountLast4: z.string().regex(/^\d{4}$/, 'Must be exactly 4 digits').optional().or(z.literal('')),
+  achRoutingLast4: z.string().regex(/^\d{4}$/, 'Must be exactly 4 digits').optional().or(z.literal('')),
+  mailingAddress: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+const EMPTY: FormValues = {
+  name: '',
+  email: '',
+  paymentMethod: 'ACH',
+  defaultGlCategory: '',
+  achAccountLast4: '',
+  achRoutingLast4: '',
+  mailingAddress: '',
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,19 +46,26 @@ interface Props {
 }
 
 export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: Props) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [method, setMethod] = useState<'ACH' | 'CHECK'>('ACH');
+  const {
+    register,
+    watch,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    shouldUnregister: false, // preserve ACH/CHECK values when fields toggle
+    defaultValues: EMPTY,
+  });
+
+  const method = watch('paymentMethod');
   const utils = trpc.useUtils();
 
-  // Reset and pre-fill whenever the dialog opens
   useEffect(() => {
     if (open) {
-      setName(initialName ?? '');
-      setEmail('');
-      setMethod('ACH');
+      reset({ ...EMPTY, name: initialName ?? '' });
     }
-  }, [open, initialName]);
+  }, [open, initialName, reset]);
 
   const createVendor = trpc.vendor.create.useMutation({
     onSuccess: (v) => {
@@ -45,31 +77,41 @@ export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: 
     onError: (e) => toast.error(e.message),
   });
 
+  const onSubmit = (data: FormValues) => {
+    createVendor.mutate({
+      name: data.name,
+      email: data.email || undefined,
+      paymentMethod: data.paymentMethod,
+      defaultGlCategory: data.defaultGlCategory || undefined,
+      achAccountLast4: data.achAccountLast4 || undefined,
+      achRoutingLast4: data.achRoutingLast4 || undefined,
+      mailingAddress: data.mailingAddress || undefined,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>New vendor</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-3 py-2">
+          {/* Name — always visible */}
           <div className="space-y-1.5">
             <Label>Name</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Vendor name"
-              autoFocus
-            />
+            <Input placeholder="Vendor name" autoFocus {...register('name')} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
+
+          {/* Email — always visible */}
           <div className="space-y-1.5">
             <Label>Email (optional)</Label>
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="billing@vendor.com"
-              type="email"
-            />
+            <Input placeholder="billing@vendor.com" type="email" {...register('email')} />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
+
+          {/* Payment method — always visible */}
           <div className="space-y-1.5">
             <Label>Payment method</Label>
             <div className="flex gap-4">
@@ -77,31 +119,63 @@ export function AddVendorDialog({ open, onOpenChange, onCreated, initialName }: 
                 <label key={m} className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="radio"
-                    name="vendor-method"
                     value={m}
-                    checked={method === m}
-                    onChange={() => setMethod(m)}
                     className="accent-foreground"
+                    {...register('paymentMethod')}
                   />
                   {m === 'ACH' ? 'ACH' : 'Check'}
                 </label>
               ))}
             </div>
           </div>
+
+          {/* GL Category — always visible */}
+          <div className="space-y-1.5">
+            <Label>Default GL category (optional)</Label>
+            <Input placeholder="e.g. Infrastructure" {...register('defaultGlCategory')} />
+          </div>
+
+          {/* ACH fields — conditional */}
+          {method === 'ACH' && (
+            <>
+              <div className="space-y-1.5">
+                <Label>Account last 4 (optional)</Label>
+                <Input placeholder="1234" maxLength={4} {...register('achAccountLast4')} />
+                {errors.achAccountLast4 && (
+                  <p className="text-xs text-destructive">{errors.achAccountLast4.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Routing last 4 (optional)</Label>
+                <Input placeholder="5678" maxLength={4} {...register('achRoutingLast4')} />
+                {errors.achRoutingLast4 && (
+                  <p className="text-xs text-destructive">{errors.achRoutingLast4.message}</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Check field — conditional */}
+          {method === 'CHECK' && (
+            <div className="space-y-1.5">
+              <Label>Mailing address (optional)</Label>
+              <textarea
+                rows={3}
+                placeholder="123 Main St, Anytown, USA 12345"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                {...register('mailingAddress')}
+              />
+            </div>
+          )}
         </div>
+
         <DialogFooter className="gap-2">
           <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
-            disabled={!name.trim() || createVendor.isPending}
-            onClick={() =>
-              createVendor.mutate({
-                name: name.trim(),
-                email: email.trim() || undefined,
-                paymentMethod: method,
-              })
-            }
+            disabled={createVendor.isPending}
+            onClick={handleSubmit(onSubmit)}
           >
             {createVendor.isPending ? 'Creating…' : 'Create vendor'}
           </Button>

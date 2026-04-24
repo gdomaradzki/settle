@@ -67,6 +67,7 @@ export function BillsTable() {
     dueBefore: dueBeforeFromWindow(filters.due),
     needsMyApproval: filters.mine || undefined,
     search: filters.q || undefined,
+    vendorId: filters.vendor ?? undefined,
   });
 
   const rawTyped = rawBills as BillWithVendor[] | undefined;

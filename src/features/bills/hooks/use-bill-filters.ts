@@ -8,6 +8,7 @@ export interface BillFilters {
   due: DueWindow;
   mine: boolean;
   q: string;
+  vendor: string | null;
 }
 
 export function useBillFilters() {
@@ -19,6 +20,7 @@ export function useBillFilters() {
     due: (params.get('due') as DueWindow) ?? null,
     mine: params.get('mine') === '1',
     q: params.get('q') ?? '',
+    vendor: params.get('vendor') ?? null,
   };
 
   function setFilter<K extends keyof BillFilters>(key: K, value: BillFilters[K]) {
@@ -35,7 +37,7 @@ export function useBillFilters() {
     router.replace('?', { scroll: false });
   }
 
-  const hasFilters = !!(filters.status || filters.due || filters.mine || filters.q);
+  const hasFilters = !!(filters.status || filters.due || filters.mine || filters.q || filters.vendor);
 
   return { filters, setFilter, clearAll, hasFilters };
 }

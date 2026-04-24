@@ -248,6 +248,7 @@ export async function listBills(input: ListBillsInput, actorId: string): Promise
             ],
           }
         : {}),
+      ...(input.vendorId ? { vendorId: input.vendorId } : {}),
     },
     include: { vendor: true },
     orderBy: { dueDate: 'asc' },

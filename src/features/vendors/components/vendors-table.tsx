@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PlusIcon } from 'lucide-react';
 import { trpc } from '@/lib/trpc-client';
 import { formatUSD } from '@/lib/money';
@@ -52,6 +53,7 @@ interface Props {
 export function VendorsTable({ initialVendors }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const utils = trpc.useUtils();
+  const router = useRouter();
 
   const { data: vendors } = trpc.vendor.list.useQuery(undefined, {
     initialData: initialVendors as VendorWithOutstanding[],
@@ -91,7 +93,14 @@ export function VendorsTable({ initialVendors }: Props) {
               </TableRow>
             ) : (
               vendorList.map((v) => (
-                <TableRow key={v.id}>
+                <TableRow
+                  key={v.id}
+                  tabIndex={0}
+                  title="View outstanding bills"
+                  onClick={() => router.push(`/bills?vendor=${v.id}`)}
+                  onKeyDown={(e) => e.key === 'Enter' && router.push(`/bills?vendor=${v.id}`)}
+                  className="cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 outline-none"
+                >
                   <TableCell className="py-3 font-medium">{v.name}</TableCell>
                   <TableCell className="py-3">
                     <Badge variant={v.paymentMethod === 'ACH' ? 'secondary' : 'outline'} className="text-xs">

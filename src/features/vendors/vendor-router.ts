@@ -40,6 +40,10 @@ export const vendorRouter = router({
         name: z.string().min(1),
         email: z.string().email().optional().or(z.literal('')),
         paymentMethod: z.enum(['ACH', 'CHECK']),
+        defaultGlCategory: z.string().optional(),
+        achAccountLast4: z.string().regex(/^\d{4}$/).optional().or(z.literal('')),
+        achRoutingLast4: z.string().regex(/^\d{4}$/).optional().or(z.literal('')),
+        mailingAddress: z.string().optional(),
       }),
     )
     .mutation(({ input }) =>
@@ -48,6 +52,10 @@ export const vendorRouter = router({
           name: input.name,
           email: input.email || null,
           paymentMethod: input.paymentMethod,
+          defaultGlCategory: input.defaultGlCategory || null,
+          achAccountLast4: input.achAccountLast4 || null,
+          achRoutingLast4: input.achRoutingLast4 || null,
+          mailingAddress: input.mailingAddress || null,
         },
       }),
     ),

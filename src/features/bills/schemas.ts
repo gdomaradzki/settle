@@ -48,5 +48,6 @@ export const listBillsInput = z.object({
   dueBefore: z.coerce.date().optional(),
   needsMyApproval: z.boolean().optional(),
   search: z.string().optional(),
+  vendorId: z.string().optional(),
 });
 export type ListBillsInput = z.infer<typeof listBillsInput>;

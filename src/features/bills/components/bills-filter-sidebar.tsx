@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { SlidersHorizontalIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trpc } from '@/lib/trpc-client';
 import { useBillFilters, type DueWindow } from '../hooks/use-bill-filters';
 import type { BillStatus } from '@/generated/prisma/enums';
 
@@ -55,8 +56,9 @@ function RadioItem({
 export function BillsFilterSidebar() {
   const { filters, setFilter, clearAll, hasFilters } = useBillFilters();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: vendors } = trpc.vendor.list.useQuery();
 
-  const activeCount = [filters.status, filters.due, filters.mine, filters.q].filter(Boolean).length;
+  const activeCount = [filters.status, filters.due, filters.mine, filters.q, filters.vendor].filter(Boolean).length;
 
   const filterContent = (
     <>
@@ -115,6 +117,25 @@ export function BillsFilterSidebar() {
             Needs my approval
           </span>
         </label>
+      </fieldset>
+
+      {/* Vendor filter */}
+      <fieldset className="flex flex-col gap-1">
+        <legend className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          Vendor
+        </legend>
+        <select
+          value={filters.vendor ?? ''}
+          onChange={(e) => setFilter('vendor', e.target.value || null)}
+          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
+        >
+          <option value="">Any vendor</option>
+          {vendors?.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </select>
       </fieldset>
 
       {hasFilters && (
