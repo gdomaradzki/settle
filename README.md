@@ -1,46 +1,160 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Settle
 
-## Getting Started
+> The bill pay workflow for modern finance teams.
 
-First, run the development server:
+**Live demo:** https://getsettleapp.vercel.app
+
+Settle is an accounts payable MVP. The product moves a bill through its lifecycle from intake, through approval, to payment, with an audit trail for every state transition.
+
+---
+
+## Try it in 90 seconds
+
+The deployed app starts you signed in as Gus Silva (submitter). Ada Chen (CFO, approver) is available in the user switcher at the top right.
+
+1. Open the **Bills** page. You'll see 14 seeded bills across all six lifecycle statuses. Click any row to see the detail view with the PDF pane, fields, action bar, and activity timeline.
+2. From the inbox toolbar, click **+ New bill**. Drop a real invoice PDF onto the uploader. Claude extracts vendor, amount, dates, and line items from the actual PDF content. Review the form, click **Submit for approval**.
+3. If a bill is above the $5,000 approval threshold, status becomes `PENDING_APPROVAL`. Switch to **Ada Chen** in the top bar and she can approve or reject.
+4. Approve the bill (click or press `A`). Switch back to Gus. Schedule a payment, then send it. The timeline grows with each transition.
+5. Visit the **Dashboard**, **Reports → AP Aging**, and **Vendors** to see the supporting surfaces.
+
+## What Settle does
+
+An AP product's job is to answer, at any moment: what do we owe, to whom, what needs attention, and what's going out the door this week. Settle implements that in a focused MVP:
+
+- **Bill intake** through three paths: manual form, PDF upload with Claude-powered extraction, and CSV bulk upload.
+- **Approval routing** with a single threshold rule. Bills at or above $5,000 require an approver. Below threshold, bills auto-approve on submit.
+- **Payment scheduling** and simulated execution. The MVP flips status and stamps a fake confirmation number. There are no real ACH or check rails.
+- **Per-bill activity timeline** sourced from an append-only event log, so every state transition is auditable.
+- **Dashboard** with the three metrics a finance person scans every morning: what needs my approval, what's due this week, cash out next 30 days.
+- **AP Aging Report** bucketed by days past due (current, 1 to 30, 31 to 60, 61+).
+
+## Prioritized workflows
+
+Ordered by what I built first:
+
+1. Bill lifecycle state machine. `DRAFT → PENDING_APPROVAL → APPROVED → SCHEDULED → PAID`, with `REJECTED` as a terminal branch. Every transition runs through one service, wrapped in a Prisma transaction alongside its audit event.
+2. Bill inbox, the hero screen. Filter by status, due window, vendor, or "needs my approval." All filter state lives in the URL.
+3. Bill detail with a contextual action bar (what you can do depends on status and role), keyboard shortcuts (`A` approve, `R` reject), and the activity timeline.
+4. Intake paths: manual, PDF with extraction, CSV bulk.
+5. Dashboard and AP aging report.
+6. Vendors page with inline creation, reused across the intake form's vendor picker.
+
+## What I cut, and why
+
+Deliberate scope decisions, each with a one-line rationale:
+
+| Cut | Reason |
+|---|---|
+| Real payment rails (ACH/check execution) | A status flip with a fake confirmation is honest and demo-complete. Real rails are an API integration exercise. |
+| Accounting sync (QuickBooks, NetSuite, Xero) | Huge integration surface, zero demo value. |
+| Multi-entity, multi-currency | USD only for the MVP. The currency column exists but is hardcoded. |
+| Real auth, multi-tenancy | Fake user switcher instead. The eval is about product and systems, not rebuilding auth. |
+| Email-to-bill ingestion (`@ap.settle.com`) | Email ingestion infra is its own project. |
+| Line item splits and allocation templates | High implementation cost, invisible unless the reviewer explicitly opens a split modal. |
+| Recurring bill payments | Scheduler plus recurrence rules plus idempotency. Stretch after stretch. |
+| PO matching, duplicate detection, W-9 collection | Breadth without depth. |
+| Audit exports, notifications, complex rules engine | Out of scope for the MVP. |
+
+Short design sketches of splits and recurring bills are in the "What I'd build next" section at the bottom, since those two are the features a thoughtful AP eval would probe about.
+
+## Setup
+
+The live URL above is the demo. Running locally is optional.
+
+### Requirements
+
+- Node 20+
+- An Anthropic API key (optional; without it, PDF extraction falls back to canned sample data matched by filename)
+
+### Steps
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/gdomaradzki/settle.git
+cd settle
+npm install
+
+# Sync env vars from Vercel (you'll need to link a project, or manually populate .env.local)
+vercel link
+vercel env pull .env.local
+
+# Or set these manually in .env.local:
+#   DATABASE_URL          Neon pooled URL
+#   DATABASE_URL_UNPOOLED Neon direct URL (for Prisma migrations)
+#   ANTHROPIC_API_KEY     optional; enables real PDF extraction
+#   BLOB_READ_WRITE_TOKEN optional; persists uploaded PDFs
+
+npm run db:push      # apply schema to Neon
+npm run db:seed      # load demo data
+npm run dev          # or `npm run build && npm start` for production mode
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The seed is idempotent. Run it any time to reset state.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture at a glance
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: Next.js 16 (App Router) with TypeScript. One process, one deploy.
+- **API layer**: tRPC. End-to-end types, shared zod schemas between forms and server.
+- **ORM**: Prisma.
+- **Database**: PostgreSQL via Neon (Vercel Postgres Marketplace integration). Scale-to-zero with sub-second resume.
+- **UI**: Tailwind with shadcn/ui.
+- **PDF extraction**: Claude via `@anthropic-ai/sdk` with a graceful fallback to canned sample data. Real extraction runs when `ANTHROPIC_API_KEY` is set. Otherwise the demo stays functional via filename-keyed canned data.
+- **PDF storage**: Vercel Blob (1GB free on Hobby). Uploaded files get public URLs with random suffixes.
+- **Deploy**: Vercel.
 
-## Learn More
+### Project structure
 
-To learn more about Next.js, take a look at the following resources:
+Domain-driven. Each domain is self-contained.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/                          # Next.js App Router routes
+├── components/                   # Cross-feature UI (shadcn primitives, top bar)
+├── features/
+│   ├── bills/                    # Schema, service (state machine), router, components, hooks
+│   ├── vendors/
+│   ├── users/
+│   ├── approvals/                # Approval threshold constant and helpers
+│   ├── intake/                   # Upload, extraction, CSV bulk
+│   ├── dashboard/
+│   └── reports/                  # AP aging
+├── hooks/                        # Cross-feature hooks
+├── lib/                          # formatUSD, date helpers
+└── server/                       # Prisma client, tRPC bootstrap, root router
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Server-only files begin with `import 'server-only';` so misrouted client imports become build errors.
 
-## Architecture notes
+## Key data model decisions
 
-### PDF persistence (Vercel Blob)
+**Money is stored as `Int` cents, with no exceptions.** Every monetary field on `Bill` and `BillLineItem` is an integer. Formatting happens at the UI edge via a single `formatUSD(cents)` helper.
 
-Uploaded invoice PDFs are stored in Vercel Blob (`@vercel/blob`). The `BLOB_READ_WRITE_TOKEN` env var is required; if unset or if the upload fails, `Bill.pdfPath` is left `null` and the detail page renders its "No PDF attached" fallback — the bill is still created normally. This failure path is intentional: the demo never breaks because of a missing or misconfigured token.
+**`BillEvent` is an append-only audit log, written in the same transaction as every state change.** The per-bill detail page's timeline renders straight from it, and the CSV-import source is distinguishable from manual creation via `event.payload.source = "csv"`. Every lifecycle transition in `bill-service.ts` wraps the bill update and the event insert in a single `db.$transaction`. If either fails, both roll back, and the audit log never diverges from truth.
 
-Blobs are written with `access: 'public'` and `addRandomSuffix: true` — URLs are unguessable but not access-controlled. This is appropriate for demo data; a production deployment would switch to private blobs with server-minted signed URLs to prevent accidental disclosure via referer logs or URL sharing.
+**Lifecycle timestamps are denormalized onto `Bill` rows.** `submittedAt`, `approvedAt`, `scheduledPayDate`, `paidAt`, and similar fields are columns on `Bill` rather than joined from the event log. The dashboard queries "bills due this week" and "cash out next 30 days" need to be fast and index-friendly. Joining to `BillEvent` for every dashboard render would be a premature correctness optimization at the cost of real performance. `BillEvent` holds the narrative. The denormalized columns hold the shape.
 
-The intake preview iframe switches from a local `blob:` URL (shown immediately on file selection) to the persisted Blob URL once `extractFromPdf` returns. The local URL is revoked at that point to free browser memory.
+**Bill status is a strict lifecycle, routed exclusively through one service.** The state machine lives in `src/features/bills/bill-service.ts`. Routers and UI components never touch `Bill.status` directly. This makes invariants (valid source status, required fields, audit logging) impossible to bypass.
 
-## Deploy on Vercel
+## On process
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Spec-driven. I used [OpenSpec](https://github.com/Fission-AI/OpenSpec) to decompose the build into around 13 discrete changes, each with a proposal, design, tasks list, and delta spec. The `openspec/` directory in this repo is the full audit trail. Active proposals live under `changes/`, consolidated per-domain specs under `specs/`, and archived changes under `changes/archive/` as historical record.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Planning was done with Claude Opus 4.7 as a thinking partner. Implementation ran through Claude Sonnet 4.6 in Claude Code, guided by each change's spec folder. This is the workflow I'd use on a production codebase today. Inspect `openspec/specs/` for the current contract and `openspec/changes/archive/` to see how each decision evolved.
+
+Time budget: about 4 hours of focused work across planning, implementation, and polish.
+
+## What I'd build next
+
+**Line item splits and allocation templates.** A `LineItemAllocation` table cascaded off `BillLineItem` with a sum-equals-line constraint. One line ("Consulting, $30,000") allocates across multiple cost centers ($15k Eng, $10k Product, $5k Sales). Reusable templates (`AllocationTemplate` table) apply to new lines on matching vendors. Reporting then aggregates by department in addition to by vendor. I cut this because the implementation cost is meaningful and the feature is invisible until the reviewer opens a split modal. Poor ratio for a take-home.
+
+**Recurring bills.** A `BillTemplate` model with RRULE-style recurrence, materialized into concrete `Bill` rows via Vercel Cron. Idempotency keyed on `(templateId, dueDate)` so the generator is safe to re-run. Mid-series cancellation via `cancelledAt` on the template. Instances after that date are skipped. Editing applies to future instances only unless the user opts to backport. I cut this because demo surface is near-zero (you can't click "wait a month" during an interview) and correctness is tricky at the edges.
+
+**Real auth and multi-tenancy.** Replace the cookie-backed user switcher with a real session provider and scope every query by `orgId`. The tRPC context is already the right seam.
+
+**Accounting sync.** Bidirectional sync to QuickBooks, NetSuite, or Xero. Every paid bill posts a journal entry. Reconciliation pulls cleared payments back. The line-item `EXPENSE` vs. `ITEM` classification already in the schema is the branch point. `ITEM` rows go to inventory sync; `EXPENSE` rows go directly to the P&L.
+
+**Vendor name resolution.** Alias mapping so `"AWS"`, `"Amazon Web Services"`, and `"AMAZON WEB SERVICES, INC."` resolve to the same vendor during extraction and CSV import. Needed for real-world data where the same vendor's name varies across invoices and exports.
+
+**Server-side pagination on the inbox.** Works fine at demo scale. Would fail at 10k bills.
+
+**Optimistic UI on lifecycle mutations.** Would make clicks feel instant even on slow connections. Straightforward with React Query's `onMutate` and `onSettled` pattern.
