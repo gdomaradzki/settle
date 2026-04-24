@@ -35,7 +35,7 @@ function RadioItem({
         type="radio"
         checked={checked}
         onChange={onChange}
-        className="accent-foreground size-3.5"
+        className="accent-zinc-900 dark:accent-zinc-300 size-3.5"
       />
       <span
         className={cn(
@@ -98,7 +98,7 @@ export function BillsFilterSidebar() {
             type="checkbox"
             checked={filters.mine}
             onChange={(e) => setFilter("mine", e.target.checked)}
-            className="accent-foreground size-3.5"
+            className="accent-zinc-900 dark:accent-zinc-300 size-3.5"
           />
           <span
             className={cn(

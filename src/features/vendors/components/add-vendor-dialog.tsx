@@ -143,7 +143,7 @@ export function AddVendorDialog({
                   <input
                     type="radio"
                     value={m}
-                    className="accent-foreground"
+                    className="accent-zinc-900 dark:accent-zinc-300"
                     {...register("paymentMethod")}
                   />
                   {m === "ACH" ? "ACH" : "Check"}

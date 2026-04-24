@@ -111,7 +111,7 @@ export function SchedulePaymentDialog({
                     value={m}
                     checked={method === m}
                     onChange={() => setMethod(m)}
-                    className="accent-foreground"
+                    className="accent-zinc-900 dark:accent-zinc-300"
                   />
                   <span className="text-sm">
                     {m === "ACH" ? "ACH" : "Check"}
