@@ -20,8 +20,8 @@ export function CsvUploadPage() {
   const utils = trpc.useUtils();
 
   const createMany = trpc.bill.createMany.useMutation({
-    onSuccess: (result) => {
-      utils.bill.list.invalidate();
+    onSuccess: async (result) => {
+      await utils.bill.list.prefetch({});
       toast.success(
         `${result.created} bill${result.created !== 1 ? "s" : ""} imported`,
       );

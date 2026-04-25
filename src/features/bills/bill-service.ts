@@ -1,6 +1,11 @@
-import 'server-only';
-import type { Bill, Vendor, BillLineItem, BillEvent } from '@/generated/prisma/client';
-import type { BillStatus, PaymentMethod } from '@/generated/prisma/enums';
+import "server-only";
+import type {
+  Bill,
+  Vendor,
+  BillLineItem,
+  BillEvent,
+} from "@/generated/prisma/client";
+import type { BillStatus, PaymentMethod } from "@/generated/prisma/enums";
 
 export type BillWithVendor = Bill & { vendor: Vendor };
 export type BillWithRelations = Bill & {
@@ -8,25 +13,34 @@ export type BillWithRelations = Bill & {
   lineItems: BillLineItem[];
   events: BillEvent[];
 };
-import { db } from '@/server/db';
-import { requiresApproval } from '@/features/approvals/approval-rules';
-import { InvalidTransitionError, UnauthorizedError } from './errors';
-import type { CreateBillInput, UpdateBillInput, ListBillsInput } from './schemas';
+import { db } from "@/server/db";
+import { requiresApproval } from "@/features/approvals/approval-rules";
+import { InvalidTransitionError, UnauthorizedError } from "./errors";
+import type {
+  CreateBillInput,
+  UpdateBillInput,
+  ListBillsInput,
+} from "./schemas";
 
 // ─── Inner helpers (take a tx client — safe to compose in one transaction) ───
 
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
 
-async function createBillInner(tx: Tx, input: CreateBillInput, actorId: string): Promise<Bill> {
+async function createBillInner(
+  tx: Tx,
+  input: CreateBillInput,
+  actorId: string,
+  eventPayload?: Record<string, string>,
+): Promise<Bill> {
   const bill = await tx.bill.create({
     data: {
       vendorId: input.vendorId,
       invoiceNumber: input.invoiceNumber,
       amountCents: input.amountCents,
-      currency: 'USD',
+      currency: "USD",
       issueDate: input.issueDate,
       dueDate: input.dueDate,
-      status: 'DRAFT',
+      status: "DRAFT",
       memo: input.memo,
       glCategory: input.glCategory,
       pdfPath: input.pdfPath,
@@ -40,23 +54,30 @@ async function createBillInner(tx: Tx, input: CreateBillInput, actorId: string):
         billId: bill.id,
         description: li.description,
         amountCents: li.amountCents,
-        type: li.type ?? 'EXPENSE',
+        type: li.type ?? "EXPENSE",
       })),
     });
   }
 
   await tx.billEvent.create({
-    data: { billId: bill.id, type: 'created', actorId },
+    data: { billId: bill.id, type: "created", actorId, payload: eventPayload },
   });
 
   return bill;
 }
 
-async function submitBillInner(tx: Tx, billId: string, actorId: string): Promise<Bill> {
+async function submitBillInner(
+  tx: Tx,
+  billId: string,
+  actorId: string,
+): Promise<Bill> {
   const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
 
-  if (bill.status !== 'DRAFT') {
-    throw new InvalidTransitionError(bill.status as BillStatus, 'PENDING_APPROVAL');
+  if (bill.status !== "DRAFT") {
+    throw new InvalidTransitionError(
+      bill.status as BillStatus,
+      "PENDING_APPROVAL",
+    );
   }
 
   const now = new Date();
@@ -64,21 +85,45 @@ async function submitBillInner(tx: Tx, billId: string, actorId: string): Promise
   if (requiresApproval(bill.amountCents)) {
     const updated = await tx.bill.update({
       where: { id: billId },
-      data: { status: 'PENDING_APPROVAL', submittedAt: now },
+      data: { status: "PENDING_APPROVAL", submittedAt: now },
     });
     await tx.billEvent.create({
-      data: { billId, type: 'submitted', actorId, payload: { toStatus: 'PENDING_APPROVAL' } },
+      data: {
+        billId,
+        type: "submitted",
+        actorId,
+        payload: { toStatus: "PENDING_APPROVAL" },
+      },
     });
     return updated;
   } else {
     const updated = await tx.bill.update({
       where: { id: billId },
-      data: { status: 'APPROVED', submittedAt: now, approvedAt: now, approvedById: actorId },
+      data: {
+        status: "APPROVED",
+        submittedAt: now,
+        approvedAt: now,
+        approvedById: actorId,
+      },
     });
     await tx.billEvent.createMany({
       data: [
-        { billId, type: 'submitted', actorId, payload: { toStatus: 'APPROVED' } },
-        { billId, type: 'approved', actorId, payload: { fromStatus: 'DRAFT', toStatus: 'APPROVED', autoApproved: 'true' } },
+        {
+          billId,
+          type: "submitted",
+          actorId,
+          payload: { toStatus: "APPROVED" },
+        },
+        {
+          billId,
+          type: "approved",
+          actorId,
+          payload: {
+            fromStatus: "DRAFT",
+            toStatus: "APPROVED",
+            autoApproved: "true",
+          },
+        },
       ],
     });
     return updated;
@@ -87,33 +132,48 @@ async function submitBillInner(tx: Tx, billId: string, actorId: string): Promise
 
 // ─── Public exports ───────────────────────────────────────────────────────────
 
-export async function createBill(input: CreateBillInput, actorId: string): Promise<Bill> {
+export async function createBill(
+  input: CreateBillInput,
+  actorId: string,
+): Promise<Bill> {
   return db.$transaction((tx) => createBillInner(tx, input, actorId));
 }
 
-export async function updateBill(input: UpdateBillInput, actorId: string): Promise<Bill> {
+export async function updateBill(
+  input: UpdateBillInput,
+  actorId: string,
+): Promise<Bill> {
   return db.$transaction(async (tx) => {
     const bill = await tx.bill.findUniqueOrThrow({ where: { id: input.id } });
 
-    if (bill.status !== 'DRAFT') {
-      throw new InvalidTransitionError(bill.status as BillStatus, 'DRAFT');
+    if (bill.status !== "DRAFT") {
+      throw new InvalidTransitionError(bill.status as BillStatus, "DRAFT");
     }
 
     const changedFields: { [key: string]: string } = {};
-    if (input.amountCents !== undefined) changedFields.amountCents = String(input.amountCents);
+    if (input.amountCents !== undefined)
+      changedFields.amountCents = String(input.amountCents);
     if (input.vendorId !== undefined) changedFields.vendorId = input.vendorId;
-    if (input.dueDate !== undefined) changedFields.dueDate = input.dueDate.toISOString();
-    if (input.issueDate !== undefined) changedFields.issueDate = input.issueDate.toISOString();
+    if (input.dueDate !== undefined)
+      changedFields.dueDate = input.dueDate.toISOString();
+    if (input.issueDate !== undefined)
+      changedFields.issueDate = input.issueDate.toISOString();
     if (input.memo !== undefined) changedFields.memo = input.memo;
-    if (input.glCategory !== undefined) changedFields.glCategory = input.glCategory;
-    if (input.invoiceNumber !== undefined) changedFields.invoiceNumber = input.invoiceNumber;
+    if (input.glCategory !== undefined)
+      changedFields.glCategory = input.glCategory;
+    if (input.invoiceNumber !== undefined)
+      changedFields.invoiceNumber = input.invoiceNumber;
 
     const updated = await tx.bill.update({
       where: { id: input.id },
       data: {
         ...(input.vendorId !== undefined && { vendorId: input.vendorId }),
-        ...(input.invoiceNumber !== undefined && { invoiceNumber: input.invoiceNumber }),
-        ...(input.amountCents !== undefined && { amountCents: input.amountCents }),
+        ...(input.invoiceNumber !== undefined && {
+          invoiceNumber: input.invoiceNumber,
+        }),
+        ...(input.amountCents !== undefined && {
+          amountCents: input.amountCents,
+        }),
         ...(input.issueDate !== undefined && { issueDate: input.issueDate }),
         ...(input.dueDate !== undefined && { dueDate: input.dueDate }),
         ...(input.memo !== undefined && { memo: input.memo }),
@@ -122,14 +182,22 @@ export async function updateBill(input: UpdateBillInput, actorId: string): Promi
     });
 
     await tx.billEvent.create({
-      data: { billId: bill.id, type: 'edited', actorId, payload: changedFields },
+      data: {
+        billId: bill.id,
+        type: "edited",
+        actorId,
+        payload: changedFields,
+      },
     });
 
     return updated;
   });
 }
 
-export async function submitBill(billId: string, actorId: string): Promise<Bill> {
+export async function submitBill(
+  billId: string,
+  actorId: string,
+): Promise<Bill> {
   return db.$transaction((tx) => submitBillInner(tx, billId, actorId));
 }
 
@@ -143,52 +211,72 @@ export async function createAndSubmitBill(
   });
 }
 
-export async function approveBill(billId: string, actorId: string): Promise<Bill> {
+export async function approveBill(
+  billId: string,
+  actorId: string,
+): Promise<Bill> {
   return db.$transaction(async (tx) => {
     const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
 
-    if (bill.status !== 'PENDING_APPROVAL') {
-      throw new InvalidTransitionError(bill.status as BillStatus, 'APPROVED');
+    if (bill.status !== "PENDING_APPROVAL") {
+      throw new InvalidTransitionError(bill.status as BillStatus, "APPROVED");
     }
 
     const actor = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
-    if (actor.role !== 'APPROVER') {
-      throw new UnauthorizedError('approve');
+    if (actor.role !== "APPROVER") {
+      throw new UnauthorizedError("approve");
     }
 
     const updated = await tx.bill.update({
       where: { id: billId },
-      data: { status: 'APPROVED', approvedAt: new Date(), approvedById: actorId },
+      data: {
+        status: "APPROVED",
+        approvedAt: new Date(),
+        approvedById: actorId,
+      },
     });
 
     await tx.billEvent.create({
-      data: { billId, type: 'approved', actorId, payload: { fromStatus: 'PENDING_APPROVAL', toStatus: 'APPROVED' } },
+      data: {
+        billId,
+        type: "approved",
+        actorId,
+        payload: { fromStatus: "PENDING_APPROVAL", toStatus: "APPROVED" },
+      },
     });
 
     return updated;
   });
 }
 
-export async function rejectBill(billId: string, actorId: string, reason: string): Promise<Bill> {
+export async function rejectBill(
+  billId: string,
+  actorId: string,
+  reason: string,
+): Promise<Bill> {
   return db.$transaction(async (tx) => {
     const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
 
-    if (bill.status !== 'PENDING_APPROVAL') {
-      throw new InvalidTransitionError(bill.status as BillStatus, 'REJECTED');
+    if (bill.status !== "PENDING_APPROVAL") {
+      throw new InvalidTransitionError(bill.status as BillStatus, "REJECTED");
     }
 
     const actor = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
-    if (actor.role !== 'APPROVER') {
-      throw new UnauthorizedError('reject');
+    if (actor.role !== "APPROVER") {
+      throw new UnauthorizedError("reject");
     }
 
     const updated = await tx.bill.update({
       where: { id: billId },
-      data: { status: 'REJECTED', rejectedAt: new Date(), rejectedReason: reason },
+      data: {
+        status: "REJECTED",
+        rejectedAt: new Date(),
+        rejectedReason: reason,
+      },
     });
 
     await tx.billEvent.create({
-      data: { billId, type: 'rejected', actorId, payload: { reason } },
+      data: { billId, type: "rejected", actorId, payload: { reason } },
     });
 
     return updated;
@@ -204,17 +292,26 @@ export async function scheduleBill(
   return db.$transaction(async (tx) => {
     const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
 
-    if (bill.status !== 'APPROVED') {
-      throw new InvalidTransitionError(bill.status as BillStatus, 'SCHEDULED');
+    if (bill.status !== "APPROVED") {
+      throw new InvalidTransitionError(bill.status as BillStatus, "SCHEDULED");
     }
 
     const updated = await tx.bill.update({
       where: { id: billId },
-      data: { status: 'SCHEDULED', scheduledPayDate: payDate, scheduledMethod: method },
+      data: {
+        status: "SCHEDULED",
+        scheduledPayDate: payDate,
+        scheduledMethod: method,
+      },
     });
 
     await tx.billEvent.create({
-      data: { billId, type: 'scheduled', actorId, payload: { payDate: payDate.toISOString(), method } },
+      data: {
+        billId,
+        type: "scheduled",
+        actorId,
+        payload: { payDate: payDate.toISOString(), method },
+      },
     });
 
     return updated;
@@ -225,8 +322,8 @@ export async function payBill(billId: string, actorId: string): Promise<Bill> {
   return db.$transaction(async (tx) => {
     const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
 
-    if (bill.status !== 'SCHEDULED') {
-      throw new InvalidTransitionError(bill.status as BillStatus, 'PAID');
+    if (bill.status !== "SCHEDULED") {
+      throw new InvalidTransitionError(bill.status as BillStatus, "PAID");
     }
 
     const random6 = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -234,27 +331,32 @@ export async function payBill(billId: string, actorId: string): Promise<Bill> {
 
     const updated = await tx.bill.update({
       where: { id: billId },
-      data: { status: 'PAID', paidAt: new Date(), paymentConfirmation: confirmation },
+      data: {
+        status: "PAID",
+        paidAt: new Date(),
+        paymentConfirmation: confirmation,
+      },
     });
 
     await tx.billEvent.create({
-      data: { billId, type: 'paid', actorId, payload: { confirmation } },
+      data: { billId, type: "paid", actorId, payload: { confirmation } },
     });
 
     return updated;
   });
 }
 
-export async function listBills(input: ListBillsInput, actorId: string): Promise<BillWithVendor[]> {
-  if (input.needsMyApproval) {
-    const actor = await db.user.findUnique({ where: { id: actorId } });
-    if (!actor || actor.role !== 'APPROVER') return [];
-  }
+export async function listBills(
+  input: ListBillsInput,
+  actorId: string,
+  actorRole: string,
+): Promise<BillWithVendor[]> {
+  if (input.needsMyApproval && actorRole !== "APPROVER") return [];
 
   const rows = await db.bill.findMany({
     where: {
       ...(input.needsMyApproval
-        ? { status: 'PENDING_APPROVAL' }
+        ? { status: "PENDING_APPROVAL" }
         : input.status
           ? { status: input.status }
           : {}),
@@ -262,16 +364,22 @@ export async function listBills(input: ListBillsInput, actorId: string): Promise
       ...(input.search
         ? {
             OR: [
-              { invoiceNumber: { contains: input.search, mode: 'insensitive' } },
-              { vendor: { name: { contains: input.search, mode: 'insensitive' } } },
-              { memo: { contains: input.search, mode: 'insensitive' } },
+              {
+                invoiceNumber: { contains: input.search, mode: "insensitive" },
+              },
+              {
+                vendor: {
+                  name: { contains: input.search, mode: "insensitive" },
+                },
+              },
+              { memo: { contains: input.search, mode: "insensitive" } },
             ],
           }
         : {}),
       ...(input.vendorId ? { vendorId: input.vendorId } : {}),
     },
     include: { vendor: true },
-    orderBy: { dueDate: 'asc' },
+    orderBy: { dueDate: "asc" },
   });
   // Prisma 7's @ts-nocheck generated files lose the `include` type — cast explicitly
   return rows as unknown as BillWithVendor[];
@@ -283,7 +391,7 @@ export async function getBill(billId: string): Promise<BillWithRelations> {
     include: {
       vendor: true,
       lineItems: true,
-      events: { orderBy: { createdAt: 'asc' } },
+      events: { orderBy: { createdAt: "asc" } },
     },
   });
   return row as unknown as BillWithRelations;
@@ -294,41 +402,9 @@ export async function createManyBills(
   actorId: string,
 ): Promise<{ created: number }> {
   return db.$transaction(async (tx) => {
-    let count = 0;
     for (const input of inputs) {
-      const bill = await tx.bill.create({
-        data: {
-          vendorId: input.vendorId,
-          invoiceNumber: input.invoiceNumber,
-          amountCents: input.amountCents,
-          currency: 'USD',
-          issueDate: input.issueDate,
-          dueDate: input.dueDate,
-          memo: input.memo,
-          glCategory: input.glCategory,
-          pdfPath: null,
-          status: 'DRAFT',
-          createdById: actorId,
-        },
-      });
-
-      if (input.lineItems.length > 0) {
-        await tx.billLineItem.createMany({
-          data: input.lineItems.map((li) => ({
-            billId: bill.id,
-            description: li.description,
-            amountCents: li.amountCents,
-            type: li.type ?? 'EXPENSE',
-          })),
-        });
-      }
-
-      await tx.billEvent.create({
-        data: { billId: bill.id, type: 'created', actorId, payload: { source: 'csv' } },
-      });
-
-      count++;
+      await createBillInner(tx, input, actorId, { source: "csv" });
     }
-    return { created: count };
+    return { created: inputs.length };
   });
 }

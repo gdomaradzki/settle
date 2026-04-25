@@ -81,7 +81,7 @@ export function UserSwitcher() {
             key={user.id}
             onClick={() => switchUser(user.id)}
             className={cn(
-              "flex cursor-pointer items-center justify-between gap-2 px-2 py-1.5",
+              "flex cursor-pointer items-center justify-between gap-2 px-2 py-2",
               user.id === current.id && "bg-muted/50",
             )}>
             <div className="flex items-center gap-2 min-w-0">

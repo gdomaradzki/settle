@@ -4,7 +4,7 @@ import { formatAbsoluteDate } from "@/lib/dates";
 import type { BillWithRelations } from "../bill-service";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
-  if (!value) return null;
+  if (value == null) return null;
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>

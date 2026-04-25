@@ -15,7 +15,6 @@ export interface BillFilters {
 export function useBillFilters() {
   const params = useSearchParams();
   const router = useRouter();
-
   const filters: BillFilters = {
     status: (params.get("status") as BillStatus | null) ?? null,
     due: (params.get("due") as DueWindow) ?? null,
@@ -32,6 +31,7 @@ export function useBillFilters() {
       } else {
         next.set(key, key === "mine" ? "1" : String(value));
       }
+      if (next.toString() === params.toString()) return;
       router.replace(`?${next.toString()}`, { scroll: false });
     },
     [params, router],

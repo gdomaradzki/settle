@@ -132,7 +132,7 @@ export function BillIntakeForm({ initialExtraction, pdfUrl, onReset }: Props) {
         ...values,
         pdfPath: pdfUrl ?? undefined,
       });
-      utils.bill.list.invalidate();
+      await utils.bill.list.prefetch({});
       toast.success("Draft saved");
       router.push(`/bills/${bill.id}`);
     } catch (e) {
@@ -149,7 +149,7 @@ export function BillIntakeForm({ initialExtraction, pdfUrl, onReset }: Props) {
         ...values,
         pdfPath: pdfUrl ?? undefined,
       });
-      utils.bill.list.invalidate();
+      await utils.bill.list.prefetch({});
       toast.success("Bill submitted");
       router.push(`/bills/${bill.id}`);
     } catch (e) {

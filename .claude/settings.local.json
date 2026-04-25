@@ -11,7 +11,8 @@
       "Bash(node -e \"console.log\\(Object.keys\\(require\\('./node_modules/@trpc/server'\\)\\)\\)\")",
       "Bash(node *)",
       "Bash(curl -s \"http://localhost:3000/api/trpc/bill.list?input=%7B%22json%22%3A%7B%7D%7D\")",
-      "Bash(npx shadcn@latest *)"
+      "Bash(npx shadcn@latest *)",
+      "Bash(npx eslint *)"
     ]
   },
   "enableAllProjectMcpServers": true,

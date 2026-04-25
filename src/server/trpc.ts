@@ -1,5 +1,5 @@
 import "server-only";
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import superjson from "superjson";
 import { db } from "./db";
@@ -29,7 +29,7 @@ export async function resolveUser(userId?: string) {
 export async function createContext({ req }: FetchCreateContextFnOptions) {
   const userId = getCookieValue(req, "settle-user-id");
   const user = await resolveUser(userId);
-  return { user };
+  return { user, isAuthenticated: !!userId };
 }
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
@@ -38,4 +38,9 @@ const t = initTRPC.context<Context>().create({ transformer: superjson });
 
 export const { router, createCallerFactory } = t;
 export const publicProcedure = t.procedure;
-export const protectedProcedure = t.procedure;
+export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.isAuthenticated) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({ ctx });
+});

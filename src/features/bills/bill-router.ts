@@ -25,7 +25,9 @@ function mapError(e: unknown): never {
 export const billRouter = router({
   list: publicProcedure
     .input(listBillsInput)
-    .query(({ input, ctx }) => svc.listBills(input, ctx.user.id)),
+    .query(({ input, ctx }) =>
+      svc.listBills(input, ctx.user.id, ctx.user.role),
+    ),
 
   get: publicProcedure
     .input(z.string())

@@ -44,7 +44,7 @@ export function SchedulePaymentDialog({
   const [date, setDate] = useState<Date>(defaultDate);
   const [calOpen, setCalOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>(
-    bill.vendor.paymentMethod as PaymentMethod,
+    (bill.vendor.paymentMethod as PaymentMethod) ?? "ACH",
   );
 
   const today = new Date();
@@ -57,7 +57,7 @@ export function SchedulePaymentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => onOpenChange(o)}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Schedule payment</DialogTitle>

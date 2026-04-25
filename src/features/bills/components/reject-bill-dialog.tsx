@@ -29,13 +29,18 @@ export function RejectBillDialog({
   const [reason, setReason] = useState("");
   const isValid = reason.trim().length >= 3;
 
+  function handleOpenChange(next: boolean) {
+    if (!next) setReason("");
+    onOpenChange(next);
+  }
+
   function handleConfirm() {
     if (!isValid) return;
     onConfirm(reason.trim());
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => onOpenChange(o)}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Reject bill</DialogTitle>
