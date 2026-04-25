@@ -23,5 +23,5 @@ export async function createServerCaller() {
   const cookieStore = await cookies();
   const userId = cookieStore.get("settle-user-id")?.value;
   const user = await resolveUser(userId);
-  return createCallerFactory(appRouter)({ user });
+  return createCallerFactory(appRouter)({ user, isAuthenticated: !!userId });
 }
