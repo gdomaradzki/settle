@@ -84,12 +84,11 @@ vercel env pull .env.local
 #   ANTHROPIC_API_KEY     optional; enables real PDF extraction
 #   BLOB_READ_WRITE_TOKEN optional; persists uploaded PDFs
 
-npm run db:push      # apply schema to Neon
-npm run db:seed      # load demo data
+npm run db:setup     # db:push + case-insensitive vendor index + seed (all three, in order)
 npm run dev          # or `npm run build && npm start` for production mode
 ```
 
-The seed is idempotent. Run it any time to reset state.
+`db:setup` is idempotent — re-run it any time to reset demo data. The index step uses `CREATE UNIQUE INDEX IF NOT EXISTS` so it's safe to repeat. If you want finer control the three steps are also available individually: `db:push`, `db:case-index`, `db:seed`.
 
 ## Architecture at a glance
 
