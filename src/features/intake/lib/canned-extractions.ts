@@ -18,8 +18,8 @@ const CANNED: Record<string, InvoiceExtraction> = {
     vendorName: "Amazon Web Services",
     invoiceNumber: "AWS-2026-05-INV",
     amountCents: 842_300,
-    issueDate: daysAgo(15),
-    dueDate: daysFromNow(15),
+    issueDate: "2026-04-01",
+    dueDate: "2026-04-29",
     lineItems: [
       {
         description: "EC2 compute (t3.xlarge × 3)",

@@ -1,5 +1,7 @@
 import "server-only";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { Prisma } from "@/generated/prisma/client";
 import { router, publicProcedure, protectedProcedure } from "@/server/trpc";
 import { db } from "@/server/db";
 
@@ -56,17 +58,32 @@ export const vendorRouter = router({
         mailingAddress: z.string().optional(),
       }),
     )
-    .mutation(({ input }) =>
-      db.vendor.create({
-        data: {
-          name: input.name,
-          email: input.email || null,
-          paymentMethod: input.paymentMethod,
-          defaultGlCategory: input.defaultGlCategory || null,
-          achAccountLast4: input.achAccountLast4 || null,
-          achRoutingLast4: input.achRoutingLast4 || null,
-          mailingAddress: input.mailingAddress || null,
-        },
-      }),
-    ),
+    .mutation(async ({ input }) => {
+      try {
+        return await db.vendor.create({
+          data: {
+            name: input.name,
+            email: input.email || null,
+            paymentMethod: input.paymentMethod,
+            defaultGlCategory: input.defaultGlCategory || null,
+            achAccountLast4: input.achAccountLast4 || null,
+            achRoutingLast4: input.achRoutingLast4 || null,
+            mailingAddress: input.mailingAddress || null,
+          },
+        });
+      } catch (e) {
+        // instanceof check can fail with the Neon adapter — fall back to message sniffing
+        const isUniqueViolation =
+          (e instanceof Prisma.PrismaClientKnownRequestError &&
+            e.code === "P2002") ||
+          (e instanceof Error && e.message.includes("Unique constraint failed"));
+        if (isUniqueViolation) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "A vendor with this name already exists.",
+          });
+        }
+        throw e;
+      }
+    }),
 });

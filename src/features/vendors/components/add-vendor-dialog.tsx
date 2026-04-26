@@ -63,6 +63,7 @@ export function AddVendorDialog({
     register,
     control,
     reset,
+    setError,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
@@ -72,7 +73,18 @@ export function AddVendorDialog({
   });
 
   const method = useWatch({ control, name: "paymentMethod" });
+  const nameValue = useWatch({ control, name: "name" });
   const utils = trpc.useUtils();
+
+  const { data: existingVendors } = trpc.vendor.list.useQuery();
+
+  // Client-side duplicate check — avoids the round-trip for the common case
+  const isDuplicateName =
+    nameValue.trim().length > 0 &&
+    (existingVendors?.some(
+      (v) => v.name.toLowerCase() === nameValue.trim().toLowerCase(),
+    ) ??
+      false);
 
   useEffect(() => {
     if (open) {
@@ -87,7 +99,16 @@ export function AddVendorDialog({
       onCreated?.(v);
       onOpenChange(false);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => {
+      const isDuplicate =
+        e.message === "A vendor with this name already exists." ||
+        e.message.includes("Unique constraint failed");
+      if (isDuplicate) {
+        setError("name", { message: "A vendor with this name already exists." });
+      } else {
+        toast.error(e.message);
+      }
+    },
   });
 
   const onSubmit = (data: FormValues) => {
@@ -116,6 +137,11 @@ export function AddVendorDialog({
             <Input placeholder="Vendor name" autoFocus {...register("name")} />
             {errors.name && (
               <p className="text-xs text-destructive">{errors.name.message}</p>
+            )}
+            {!errors.name && isDuplicateName && (
+              <p className="text-xs text-destructive">
+                A vendor with this name already exists.
+              </p>
             )}
           </div>
 
@@ -215,7 +241,7 @@ export function AddVendorDialog({
             Cancel
           </Button>
           <Button
-            disabled={createVendor.isPending}
+            disabled={createVendor.isPending || isDuplicateName}
             onClick={handleSubmit(onSubmit)}>
             {createVendor.isPending ? "Creating…" : "Create vendor"}
           </Button>

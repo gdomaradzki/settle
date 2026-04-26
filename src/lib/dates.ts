@@ -21,7 +21,8 @@ export function formatRelativeDueDate(
   const diffDays = Math.round((dueMs - todayMs) / 86_400_000);
 
   if (diffDays < 0) {
-    if (status === "PAID") {
+    const isTerminal = status === "PAID" || status === "REJECTED";
+    if (isTerminal) {
       return { label: formatShortDate(dueDate), tone: "muted" };
     }
     return { label: `Overdue ${Math.abs(diffDays)}d`, tone: "overdue" };

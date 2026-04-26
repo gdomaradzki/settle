@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "dotenv -e .env.development.local -- prisma db push",
+    "db:case-index": "dotenv -e .env.development.local -- prisma db execute --file ./prisma/sql/vendor-name-unique.sql",
     "db:seed": "dotenv -e .env.development.local -- prisma db seed",
+    "db:setup": "npm run db:push && npm run db:case-index && npm run db:seed",
     "db:generate": "dotenv -e .env.development.local -- prisma generate",
     "verify": "dotenv -e .env.development.local -- node --conditions=react-server --require=./node_modules/tsx/dist/cjs/index.cjs scripts/verify-lifecycle.ts"
   },

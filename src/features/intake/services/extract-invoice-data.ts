@@ -38,7 +38,11 @@ export async function extractInvoiceData(
   filename: string,
 ): Promise<InvoiceExtraction> {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return getCannedExtraction(filename);
+  if (!key) {
+    const canned = getCannedExtraction(filename);
+    console.log("[extract-invoice-data] no API key, using canned extraction:", canned);
+    return canned;
+  }
 
   try {
     const client = new Anthropic({ apiKey: key });
@@ -66,12 +70,13 @@ export async function extractInvoiceData(
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
     const json = extractJsonBlock(text);
-    return invoiceExtractionSchema.parse(JSON.parse(json));
+    const extraction = invoiceExtractionSchema.parse(JSON.parse(json));
+    console.log("[extract-invoice-data] parsed extraction:", extraction);
+    return extraction;
   } catch (err) {
-    console.error(
-      "Invoice extraction failed, falling back to canned data:",
-      err,
-    );
-    return getCannedExtraction(filename);
+    console.error("[extract-invoice-data] extraction failed, using canned data:", err);
+    const canned = getCannedExtraction(filename);
+    console.log("[extract-invoice-data] canned extraction:", canned);
+    return canned;
   }
 }

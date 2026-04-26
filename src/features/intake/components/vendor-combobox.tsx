@@ -5,12 +5,10 @@ import { trpc } from "@/lib/trpc-client";
 import { cn } from "@/lib/utils";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -33,6 +31,11 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
   const [search, setSearch] = useState("");
   // Track which initialVendorName the user has already dismissed the auto-dialog for
   const [dismissedName, setDismissedName] = useState<string | null>(null);
+  // Optimistic entry for a vendor just created — shown immediately before the query refetches
+  const [optimisticVendor, setOptimisticVendor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Ref to call the latest onChange without it being an effect dependency
   const onChangeRef = useRef(onChange);
@@ -50,12 +53,15 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
     );
   }, [initialVendorName, vendors]);
 
-  // Auto-select matched vendor via effect (calling external callback is a legitimate side effect)
+  // Auto-select matched vendor via effect. Depend on the ID (primitive), not the object —
+  // vendors is a new array on every refetch, which would re-fire the effect and overwrite
+  // any manual selection the user made after the initial auto-select.
+  const initialMatchId = initialMatch?.id;
   useEffect(() => {
-    if (initialMatch) {
-      onChangeRef.current(initialMatch.id);
+    if (initialMatchId) {
+      onChangeRef.current(initialMatchId);
     }
-  }, [initialMatch]);
+  }, [initialMatchId]);
 
   // Derived: name to pre-fill in the create dialog when no vendor matches the extracted name
   const autoCreateName =
@@ -76,7 +82,16 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
     setManualCreateOpen(open);
   }
 
-  const selectedVendor = vendors?.find((v) => v.id === value);
+  // Once the refetch catches up, drop the optimistic entry so canonical data takes over
+  useEffect(() => {
+    if (optimisticVendor && vendors?.some((v) => v.id === optimisticVendor.id)) {
+      setOptimisticVendor(null);
+    }
+  }, [vendors, optimisticVendor]);
+
+  const selectedVendor =
+    vendors?.find((v) => v.id === value) ??
+    (optimisticVendor?.id === value ? optimisticVendor : undefined);
   const filtered = vendors?.filter((v) =>
     v.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -101,9 +116,14 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
               onValueChange={setSearch}
             />
             <CommandList>
-              <CommandEmpty className="py-4 text-center text-sm text-muted-foreground">
-                No vendors found.
-              </CommandEmpty>
+              {/* CommandEmpty from cmdk never fires here because the footer CommandItem
+                  is registered in the same Command context and always matches the search
+                  (its text includes the query). Use a plain conditional render instead. */}
+              {search && filtered?.length === 0 && (
+                <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  No vendors match &ldquo;{search}&rdquo;.
+                </p>
+              )}
               <CommandGroup>
                 {filtered?.map((vendor) => (
                   <CommandItem
@@ -124,19 +144,19 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandSeparator />
-              <CommandGroup>
-                <CommandItem
-                  onSelect={() => {
-                    setManualCreateName(search);
-                    setOpen(false);
-                    setManualCreateOpen(true);
-                  }}>
-                  <PlusIcon className="mr-2 size-3.5" />
-                  Create new vendor{search ? ` &ldquo;${search}&rdquo;` : ""}
-                </CommandItem>
-              </CommandGroup>
             </CommandList>
+            {/* Pinned footer — lives outside CommandList so it never scrolls away */}
+            <div className="border-t p-1">
+              <CommandItem
+                onSelect={() => {
+                  setManualCreateName(search);
+                  setOpen(false);
+                  setManualCreateOpen(true);
+                }}>
+                <PlusIcon className="mr-2 size-3.5" />
+                {search ? `Create "${search}"` : "Create new vendor"}
+              </CommandItem>
+            </div>
           </Command>
         </PopoverContent>
       </Popover>
@@ -145,7 +165,11 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
         open={createOpen}
         onOpenChange={handleCreateOpenChange}
         initialName={createInitialName}
-        onCreated={(v) => onChange(v.id)}
+        onCreated={(v) => {
+          onChange(v.id);
+          setOptimisticVendor(v);
+          setOpen(false);
+        }}
       />
     </>
   );

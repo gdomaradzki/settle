@@ -113,15 +113,19 @@ export function BillIntakeForm({ initialExtraction, pdfUrl, onReset }: Props) {
   const issueDate = useWatch({ control: form.control, name: "issueDate" });
   const dueDate = useWatch({ control: form.control, name: "dueDate" });
 
-  // Apply extraction data when it changes (form.setValue is an external side effect — correct use of effect)
+  // Apply extraction data when it changes. Per-field setValue is intentionally used here
+  // rather than form.reset so that vendorId (managed by VendorCombobox) is left untouched
+  // and no extra full-form re-render is triggered.
+  // T00:00:00 suffix parses date strings as local time instead of UTC midnight, which would
+  // otherwise shift the displayed date back one day in negative-offset timezones.
   useEffect(() => {
     if (!initialExtraction) return;
-    form.setValue("invoiceNumber", initialExtraction.invoiceNumber ?? "");
-    form.setValue("amountCents", initialExtraction.amountCents);
-    form.setValue("issueDate", new Date(initialExtraction.issueDate));
-    form.setValue("dueDate", new Date(initialExtraction.dueDate));
+    form.setValue("invoiceNumber", initialExtraction.invoiceNumber ?? "", { shouldDirty: true });
+    form.setValue("amountCents", initialExtraction.amountCents, { shouldDirty: true });
+    form.setValue("issueDate", new Date(initialExtraction.issueDate + "T00:00:00"), { shouldDirty: true, shouldValidate: true });
+    form.setValue("dueDate", new Date(initialExtraction.dueDate + "T00:00:00"), { shouldDirty: true, shouldValidate: true });
     if (initialExtraction.lineItems.length > 0) {
-      form.setValue("lineItems", initialExtraction.lineItems);
+      form.setValue("lineItems", initialExtraction.lineItems, { shouldDirty: true });
     }
   }, [initialExtraction, form]);
 
@@ -201,7 +205,7 @@ export function BillIntakeForm({ initialExtraction, pdfUrl, onReset }: Props) {
         <VendorCombobox
           value={vendorId || null}
           onChange={(id) =>
-            form.setValue("vendorId", id, { shouldValidate: true })
+            form.setValue("vendorId", id, { shouldDirty: true, shouldValidate: true })
           }
           initialVendorName={initialExtraction?.vendorName || undefined}
         />
