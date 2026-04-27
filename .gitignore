@@ -49,3 +49,10 @@ next-env.d.ts
 
 # Verification scripts (not part of the product)
 /scripts/
+
+# Test outputs
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/coverage/

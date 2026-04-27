@@ -12,7 +12,15 @@
     "db:seed": "dotenv -e .env.development.local -- prisma db seed",
     "db:setup": "npm run db:push && npm run db:case-index && npm run db:seed",
     "db:generate": "dotenv -e .env.development.local -- prisma generate",
-    "verify": "dotenv -e .env.development.local -- node --conditions=react-server --require=./node_modules/tsx/dist/cjs/index.cjs scripts/verify-lifecycle.ts"
+    "verify": "dotenv -e .env.development.local -- node --conditions=react-server --require=./node_modules/tsx/dist/cjs/index.cjs scripts/verify-lifecycle.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test --pass-with-no-tests",
+    "test:all": "npm test && npm run test:e2e",
+    "testdb:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "testdb:down": "docker compose -f docker-compose.test.yml down",
+    "testdb:reset": "docker compose -f docker-compose.test.yml down -v && docker compose -f docker-compose.test.yml up -d --wait"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",
@@ -50,16 +58,27 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@prisma/adapter-pg": "^7.8.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.5",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0-canary.2",
+    "jsdom": "^29.1.0",
+    "pg": "^8.20.0",
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }

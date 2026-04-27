@@ -16,14 +16,13 @@ export function LineItemsField({ form, amountTouched }: Props) {
     control: form.control,
     name: "lineItems",
   });
-  const lineItems = useWatch({ control: form.control, name: "lineItems" });
+  // Subscribe so this component re-renders when items change (drives the displayed value)
+  useWatch({ control: form.control, name: "lineItems" });
 
   function updateBillAmount() {
     if (amountTouched) return;
-    const sum = (lineItems ?? []).reduce(
-      (s, li) => s + (li?.amountCents ?? 0),
-      0,
-    );
+    const items = form.getValues("lineItems") ?? [];
+    const sum = items.reduce((s, li) => s + (li?.amountCents ?? 0), 0);
     form.setValue("amountCents", sum, { shouldValidate: false });
   }
 
@@ -59,7 +58,7 @@ export function LineItemsField({ form, amountTouched }: Props) {
                   `lineItems.${i}.amountCents`,
                   isNaN(cents) ? 0 : cents,
                 );
-                setTimeout(updateBillAmount, 0);
+                updateBillAmount();
               }}
             />
           </div>
@@ -73,7 +72,7 @@ export function LineItemsField({ form, amountTouched }: Props) {
             type="button"
             onClick={() => {
               remove(i);
-              setTimeout(updateBillAmount, 0);
+              updateBillAmount();
             }}
             className="mt-1.5 text-muted-foreground hover:text-foreground transition-colors">
             <XIcon className="size-3.5" />

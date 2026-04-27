@@ -1,9 +1,19 @@
 import { PrismaClient, UserRole, PaymentMethod, BillStatus, LineItemType } from '../generated/prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-const db = new PrismaClient({
-  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL_UNPOOLED! }),
-});
+// Use Neon adapter in production (DATABASE_URL_UNPOOLED set); fall back to
+// standard pg for local test environments where Docker Postgres is used.
+function createAdapter() {
+  if (process.env.DATABASE_URL_UNPOOLED) {
+    return new PrismaNeon({ connectionString: process.env.DATABASE_URL_UNPOOLED });
+  }
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  return new PrismaPg(pool);
+}
+
+const db = new PrismaClient({ adapter: createAdapter() });
 
 function addDays(base: Date, n: number): Date {
   const d = new Date(base);

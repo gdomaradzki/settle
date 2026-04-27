@@ -82,13 +82,6 @@ export function VendorCombobox({ value, onChange, initialVendorName }: Props) {
     setManualCreateOpen(open);
   }
 
-  // Once the refetch catches up, drop the optimistic entry so canonical data takes over
-  useEffect(() => {
-    if (optimisticVendor && vendors?.some((v) => v.id === optimisticVendor.id)) {
-      setOptimisticVendor(null);
-    }
-  }, [vendors, optimisticVendor]);
-
   const selectedVendor =
     vendors?.find((v) => v.id === value) ??
     (optimisticVendor?.id === value ? optimisticVendor : undefined);

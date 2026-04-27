@@ -12,7 +12,14 @@
       "Bash(node *)",
       "Bash(curl -s \"http://localhost:3000/api/trpc/bill.list?input=%7B%22json%22%3A%7B%7D%7D\")",
       "Bash(npx shadcn@latest *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "mcp__next-devtools__init",
+      "Bash(npx vitest *)",
+      "Bash(npm test *)",
+      "Bash(dir \"C:\\\\Users\\\\gus\\\\Documents\\\\dev\\\\gdomaradzki\\\\settle\\\\src\\\\app\" /b)",
+      "Bash(dir \"C:\\\\Users\\\\gus\\\\Documents\\\\dev\\\\gdomaradzki\\\\settle\\\\src\\\\app\" /s /b)",
+      "Bash(npx playwright *)",
+      "Bash(npx openspec *)"
     ]
   },
   "enableAllProjectMcpServers": true,
