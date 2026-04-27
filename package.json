@@ -80,5 +80,10 @@
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
-  }
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.9.0"
+  },
+  "packageManager": "npm@11.6.2"
 }
