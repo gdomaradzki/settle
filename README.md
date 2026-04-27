@@ -64,7 +64,7 @@ The live URL above is the demo. Running locally is optional.
 
 ### Requirements
 
-- Node 20+
+- Node 22+
 - An Anthropic API key (optional; without it, PDF extraction falls back to canned sample data matched by filename)
 
 ### Steps
@@ -95,7 +95,7 @@ npm run dev          # or `npm run build && npm start` for production mode
 ### Prerequisites
 
 - Docker (for the isolated test database)
-- Node 20+
+- Node 22+
 
 ### Test database
 
