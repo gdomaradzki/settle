@@ -53,6 +53,7 @@ export function UserSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        data-testid="user-switcher"
         className={cn(
           "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm",
           "transition-colors hover:bg-muted outline-none",
