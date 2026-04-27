@@ -90,6 +90,49 @@ npm run dev          # or `npm run build && npm start` for production mode
 
 `db:setup` is idempotent — re-run it any time to reset demo data. The index step uses `CREATE UNIQUE INDEX IF NOT EXISTS` so it's safe to repeat. If you want finer control the three steps are also available individually: `db:push`, `db:case-index`, `db:seed`.
 
+## Running tests
+
+### Prerequisites
+
+- Docker (for the isolated test database)
+- Node 20+
+
+### Test database
+
+Tests run against a separate Postgres container on port 5433, completely isolated from the development database.
+
+```bash
+# Start the test DB (Docker required)
+npm run testdb:up
+
+# Create .env.test in the project root with:
+# TEST_DATABASE_URL=postgresql://postgres:test@localhost:5433/test
+```
+
+The schema is applied automatically before the first test run via `prisma db push`. You don't need to run any migration step manually.
+
+### Commands
+
+| Command | What it runs |
+|---|---|
+| `npm test` | Vitest — all backend service, router, and component tests |
+| `npm run test:watch` | Vitest in watch mode |
+| `npm run test:coverage` | Vitest with V8 coverage report (threshold: 85% lines on `src/features/`) |
+| `npm run test:e2e` | Playwright — full end-to-end suite against a running dev server |
+| `npm run test:all` | Both Vitest and Playwright in sequence |
+
+For the e2e suite, `npm run test:e2e` starts the dev server automatically on port 3001 (configured in `playwright.config.ts`). The first run compiles the app, so expect a 30–60 second startup.
+
+### Test structure
+
+- **Backend (service + router)** tests in `src/features/*/__tests__/` hit a real Postgres database. Each file calls `resetWithTruncate()` to clean up after every test.
+- **Component** tests in `src/features/*/components/__tests__/` use React Testing Library under jsdom. tRPC calls are mocked via `src/test/mocks/trpc-client.ts`.
+- **End-to-end** tests in `tests/e2e/` use Playwright against a seeded test database. The `setUser` helper in `tests/e2e/helpers.ts` switches users by injecting the session cookie directly, bypassing UI timing issues.
+
+### CI
+
+`.github/workflows/test.yml` runs the full suite on every push and pull request using a GitHub Actions Postgres service container.
+
 ## Architecture at a glance
 
 - **Framework**: Next.js 16 (App Router) with TypeScript. One process, one deploy.
@@ -99,6 +142,7 @@ npm run dev          # or `npm run build && npm start` for production mode
 - **UI**: Tailwind with shadcn/ui.
 - **PDF extraction**: Claude via `@anthropic-ai/sdk` with a graceful fallback to canned sample data. Real extraction runs when `ANTHROPIC_API_KEY` is set. Otherwise the demo stays functional via filename-keyed canned data.
 - **PDF storage**: Vercel Blob (1GB free on Hobby). Uploaded files get public URLs with random suffixes.
+- **Testing**: Vitest for backend service and router tests (real Postgres, transactional isolation) and React Testing Library for component tests (jsdom, mocked tRPC). Playwright for end-to-end flows. All suites run against an isolated Docker Postgres, never the dev database.
 - **Deploy**: Vercel.
 
 ### Project structure
@@ -119,7 +163,10 @@ src/
 │   └── reports/                  # AP aging
 ├── hooks/                        # Cross-feature hooks
 ├── lib/                          # formatUSD, date helpers
-└── server/                       # Prisma client, tRPC bootstrap, root router
+├── server/                       # Prisma client, tRPC bootstrap, root router
+└── test/                         # Shared test utilities: factories, reset helpers, mocks
+tests/
+└── e2e/                          # Playwright end-to-end specs and helpers
 ```
 
 Server-only files begin with `import 'server-only';` so misrouted client imports become build errors.
