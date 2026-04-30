@@ -19,7 +19,11 @@
       "Bash(dir \"C:\\\\Users\\\\gus\\\\Documents\\\\dev\\\\gdomaradzki\\\\settle\\\\src\\\\app\" /b)",
       "Bash(dir \"C:\\\\Users\\\\gus\\\\Documents\\\\dev\\\\gdomaradzki\\\\settle\\\\src\\\\app\" /s /b)",
       "Bash(npx playwright *)",
-      "Bash(npx openspec *)"
+      "Bash(npx openspec *)",
+      "Bash(openspec --version)",
+      "Bash(openspec --help)",
+      "Bash(openspec list *)",
+      "Bash(openspec validate *)"
     ]
   },
   "enableAllProjectMcpServers": true,
