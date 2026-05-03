@@ -7,6 +7,7 @@ import { vendorRouter } from "@/features/vendors/vendor-router";
 import { intakeRouter } from "@/features/intake/intake-router";
 import { dashboardRouter } from "@/features/dashboard/dashboard-router";
 import { reportRouter } from "@/features/reports/report-router";
+import { templateRouter } from "@/features/templates/template-router";
 
 export const appRouter = router({
   bill: billRouter,
@@ -15,6 +16,7 @@ export const appRouter = router({
   intake: intakeRouter,
   dashboard: dashboardRouter,
   reports: reportRouter,
+  templates: templateRouter,
 });
 
 export type AppRouter = typeof appRouter;

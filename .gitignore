@@ -56,3 +56,6 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 /coverage/
+
+# Claude Code agent scratch (isolated worktrees created by subagents)
+.claude/worktrees/

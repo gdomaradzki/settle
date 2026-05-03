@@ -4,6 +4,8 @@ import type {
   Vendor,
   BillLineItem,
   BillEvent,
+  BillTemplate,
+  BillTemplateLineItem,
 } from "@/generated/prisma/client";
 import type { BillStatus, PaymentMethod } from "@/generated/prisma/enums";
 
@@ -12,6 +14,10 @@ export type BillWithRelations = Bill & {
   vendor: Vendor;
   lineItems: BillLineItem[];
   events: BillEvent[];
+};
+export type TemplateWithVendorAndLineItems = BillTemplate & {
+  vendor: Vendor;
+  lineItems: BillTemplateLineItem[];
 };
 import { db } from "@/server/db";
 import { requiresApproval } from "@/features/approvals/approval-rules";
@@ -128,6 +134,71 @@ async function submitBillInner(
     });
     return updated;
   }
+}
+
+async function createScheduledBillFromTemplateInner(
+  tx: Tx,
+  template: TemplateWithVendorAndLineItems,
+  payDate: Date,
+  actorId: string,
+): Promise<Bill> {
+  const now = new Date();
+  const bill = await tx.bill.create({
+    data: {
+      vendorId: template.vendorId,
+      amountCents: template.amountCents,
+      currency: "USD",
+      issueDate: now,
+      dueDate: payDate,
+      status: "SCHEDULED",
+      memo: template.memo ?? undefined,
+      glCategory: template.glCategory ?? undefined,
+      submittedAt: now,
+      approvedAt: now,
+      approvedById: actorId,
+      scheduledPayDate: payDate,
+      scheduledMethod: template.vendor.paymentMethod,
+      createdById: actorId,
+      recurringTemplateId: template.id,
+    },
+  });
+
+  if (template.lineItems.length > 0) {
+    await tx.billLineItem.createMany({
+      data: template.lineItems.map((li) => ({
+        billId: bill.id,
+        description: li.description,
+        amountCents: li.amountCents,
+        type: "EXPENSE" as const,
+      })),
+    });
+  }
+
+  await tx.billEvent.createMany({
+    data: [
+      {
+        billId: bill.id,
+        type: "created",
+        actorId,
+        payload: {
+          source: "recurring",
+          templateId: template.id,
+          autoApproved: "true",
+        },
+      },
+      {
+        billId: bill.id,
+        type: "scheduled",
+        actorId,
+        payload: {
+          payDate: payDate.toISOString(),
+          method: template.vendor.paymentMethod,
+        },
+      },
+    ],
+  });
+
+  return bill;
 }
 
 // ─── Public exports ───────────────────────────────────────────────────────────
@@ -318,32 +389,38 @@ export async function scheduleBill(
   });
 }
 
-export async function payBill(billId: string, actorId: string): Promise<Bill> {
-  return db.$transaction(async (tx) => {
-    const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
+async function payBillInner(
+  tx: Tx,
+  billId: string,
+  actorId: string,
+): Promise<Bill> {
+  const bill = await tx.bill.findUniqueOrThrow({ where: { id: billId } });
 
-    if (bill.status !== "SCHEDULED") {
-      throw new InvalidTransitionError(bill.status as BillStatus, "PAID");
-    }
+  if (bill.status !== "SCHEDULED") {
+    throw new InvalidTransitionError(bill.status as BillStatus, "PAID");
+  }
 
-    const random6 = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const confirmation = `SETTLE-${Date.now()}-${random6}`;
+  const random6 = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const confirmation = `SETTLE-${Date.now()}-${random6}`;
 
-    const updated = await tx.bill.update({
-      where: { id: billId },
-      data: {
-        status: "PAID",
-        paidAt: new Date(),
-        paymentConfirmation: confirmation,
-      },
-    });
-
-    await tx.billEvent.create({
-      data: { billId, type: "paid", actorId, payload: { confirmation } },
-    });
-
-    return updated;
+  const updated = await tx.bill.update({
+    where: { id: billId },
+    data: {
+      status: "PAID",
+      paidAt: new Date(),
+      paymentConfirmation: confirmation,
+    },
   });
+
+  await tx.billEvent.create({
+    data: { billId, type: "paid", actorId, payload: { confirmation } },
+  });
+
+  return updated;
+}
+
+export async function payBill(billId: string, actorId: string): Promise<Bill> {
+  return db.$transaction((tx) => payBillInner(tx, billId, actorId));
 }
 
 export async function listBills(
@@ -407,4 +484,14 @@ export async function createManyBills(
     }
     return { created: inputs.length };
   });
+}
+
+export async function createScheduledBillFromTemplate(
+  template: TemplateWithVendorAndLineItems,
+  payDate: Date,
+  actorId: string,
+): Promise<Bill> {
+  return db.$transaction((tx) =>
+    createScheduledBillFromTemplateInner(tx, template, payDate, actorId),
+  );
 }

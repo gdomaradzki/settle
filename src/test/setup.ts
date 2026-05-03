@@ -10,7 +10,7 @@ export { db };
 export function resetWithTruncate(): void {
   afterEach(async () => {
     await db.$executeRawUnsafe(
-      'TRUNCATE "BillEvent", "BillLineItem", "Bill", "Vendor", "User" RESTART IDENTITY CASCADE',
+      'TRUNCATE "BillEvent", "BillLineItem", "Bill", "BillTemplateLineItem", "BillTemplate", "Vendor", "User" RESTART IDENTITY CASCADE',
     );
   });
 }

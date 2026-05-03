@@ -39,7 +39,8 @@ model Vendor {
   defaultGlCategory String?
   createdAt         DateTime      @default(now())
 
-  bills Bill[]
+  bills     Bill[]
+  templates BillTemplate[]
 }
 
 // ─── bills ────────────────────────────────────────────────────────────────────
@@ -86,12 +87,52 @@ model Bill {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  vendor    Vendor         @relation(fields: [vendorId], references: [id])
-  lineItems BillLineItem[]
-  events    BillEvent[]
+  // Recurring template linkage — null for manually created bills
+  recurringTemplateId String?
 
+  vendor            Vendor         @relation(fields: [vendorId], references: [id])
+  lineItems         BillLineItem[]
+  events            BillEvent[]
+  recurringTemplate BillTemplate?  @relation("RecurringTemplateBills", fields: [recurringTemplateId], references: [id])
+
+  @@unique([recurringTemplateId, dueDate])
   @@index([status, dueDate])
   @@index([vendorId])
+}
+
+// ─── recurring bill templates ─────────────────────────────────────────────────
+
+model BillTemplate {
+  id                String  @id @default(cuid())
+  vendorId          String
+  description       String
+  amountCents       Int
+  // The day the vendor receives funds, 1–28 (enforced in the application layer).
+  // The cron generates the bill in advance based on the vendor's payment method
+  // (10 calendar days for ACH, 15 for check) so settlement lands on this day.
+  paymentDayOfMonth Int
+  memo              String?
+  glCategory        String?
+
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cancelledAt DateTime?
+
+  vendor    Vendor                 @relation(fields: [vendorId], references: [id])
+  lineItems BillTemplateLineItem[]
+  bills     Bill[]                 @relation("RecurringTemplateBills")
+
+  @@index([cancelledAt, paymentDayOfMonth])
+}
+
+model BillTemplateLineItem {
+  id          String @id @default(cuid())
+  templateId  String
+  description String
+  amountCents Int
+
+  template BillTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
 
 model BillLineItem {

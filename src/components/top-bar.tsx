@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboardIcon, FileTextIcon, Building2Icon, BarChart3Icon } from 'lucide-react';
+import { LayoutDashboardIcon, FileTextIcon, Building2Icon, BarChart3Icon, RepeatIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserSwitcher } from './user-switcher';
 
@@ -10,6 +10,7 @@ const NAV = [
   { href: '/bills', label: 'Bills', Icon: FileTextIcon },
   { href: '/vendors', label: 'Vendors', Icon: Building2Icon },
   { href: '/reports/ap-aging', label: 'Reports', Icon: BarChart3Icon },
+  { href: '/templates', label: 'Templates', Icon: RepeatIcon },
 ];
 
 export function TopBar() {

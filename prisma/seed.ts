@@ -3,6 +3,15 @@ import { PrismaNeon } from '@prisma/adapter-neon';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
+// Keep in sync with src/features/users/system-user.ts — cannot import that
+// file here because it contains `import 'server-only'` which throws outside
+// the Next.js server environment (the seed runs in plain Node via tsx).
+const SYSTEM_USER_ID = 'system';
+
+// Stable seed IDs for recurring bill templates
+const BEACON_VENDOR_ID = 'seed-vendor-beacon-property-mgmt';
+const BEACON_TEMPLATE_ID = 'seed-template-beacon-office-rent';
+
 // Use Neon adapter in production (DATABASE_URL_UNPOOLED set); fall back to
 // standard pg for local test environments where Docker Postgres is used.
 function createAdapter() {
@@ -124,6 +133,8 @@ async function main() {
   await db.billEvent.deleteMany();
   await db.billLineItem.deleteMany();
   await db.bill.deleteMany();
+  await db.billTemplateLineItem.deleteMany();
+  await db.billTemplate.deleteMany();
   await db.vendor.deleteMany();
   await db.user.deleteMany();
 
@@ -133,6 +144,19 @@ async function main() {
   });
   const ada = await db.user.create({
     data: { name: 'Ada Chen', email: 'ada@settle.demo', role: UserRole.APPROVER },
+  });
+
+  // System user — actor for all cron-driven BillEvents. Upserted so that a
+  // future seed run that skips the deleteMany block won't error on duplicate.
+  await db.user.upsert({
+    where: { id: SYSTEM_USER_ID },
+    update: {},
+    create: {
+      id: SYSTEM_USER_ID,
+      name: 'System',
+      email: 'system@settle.local',
+      role: UserRole.SUBMITTER,
+    },
   });
 
   // ─── Vendors ────────────────────────────────────────────────────────────────
@@ -450,7 +474,48 @@ async function main() {
     gus.id,
   );
 
-  console.log(`Seeded: 2 users, 5 vendors, 14 bills`);
+  // ─── Recurring bill templates ───────────────────────────────────────────────
+
+  // Ensure Beacon Property Management vendor exists (idempotent)
+  const beacon = await db.vendor.upsert({
+    where: { id: BEACON_VENDOR_ID },
+    create: {
+      id: BEACON_VENDOR_ID,
+      name: 'Beacon Property Management',
+      email: 'billing@beaconproperty.example.com',
+      paymentMethod: PaymentMethod.ACH,
+      achAccountLast4: '5512',
+      achRoutingLast4: '0260',
+      defaultGlCategory: 'Rent & Occupancy',
+    },
+    update: {},
+  });
+
+  // Idempotent upsert for the rent template
+  await db.billTemplate.upsert({
+    where: { id: BEACON_TEMPLATE_ID },
+    create: {
+      id: BEACON_TEMPLATE_ID,
+      vendorId: beacon.id,
+      description: 'Monthly office rent',
+      amountCents: 450_000,
+      paymentDayOfMonth: 1,
+      memo: 'Office rent — current month',
+      glCategory: 'Rent & Occupancy',
+      createdById: gus.id,
+      lineItems: {
+        create: [
+          {
+            description: 'Office rent — current month',
+            amountCents: 450_000,
+          },
+        ],
+      },
+    },
+    update: {},
+  });
+
+  console.log(`Seeded: 3 users (incl. System), 6 vendors, 14 bills, 1 recurring template`);
 }
 
 main()
