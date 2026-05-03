@@ -34,6 +34,26 @@ async function run(ctx: CronContext): Promise<JobResult> {
 
     for (const template of templates) {
       try {
+        // End-date check: stop generating once the next pay date is past
+        // the user-specified end.
+        if (template.endsAt !== null && targetPayDate > template.endsAt) {
+          skipped++;
+          continue;
+        }
+
+        // Max-occurrences check: count of bills ever generated for this
+        // template (any status). Cheaper than guarding generation a different
+        // way and consistent with the audit trail.
+        if (template.maxOccurrences !== null) {
+          const generated = await ctx.db.bill.count({
+            where: { recurringTemplateId: template.id },
+          });
+          if (generated >= template.maxOccurrences) {
+            skipped++;
+            continue;
+          }
+        }
+
         await createScheduledBillFromTemplate(
           template as unknown as TemplateWithVendorAndLineItems,
           targetPayDate,
@@ -71,6 +91,6 @@ async function run(ctx: CronContext): Promise<JobResult> {
 export const generateRecurringBills: CronJob = {
   name: "generate-recurring-bills",
   description:
-    "Creates a SCHEDULED bill instance for each active BillTemplate whose paymentDayOfMonth matches today + the vendor's payment-method lead time (10d ACH, 15d check).",
+    "Generates a bill from each active recurring template due for generation today (respects endsAt, maxOccurrences, and the per-instance approval flag).",
   run,
 };

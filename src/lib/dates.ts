@@ -34,8 +34,18 @@ export function formatRelativeDueDate(
   return { label: formatShortDate(dueDate), tone: "default" };
 }
 
+// Most date fields in this app are *calendar dates* stored at UTC midnight
+// (dueDate, scheduledPayDate, issueDate, endsAt). Rendering them in the
+// viewer's local timezone would shift the displayed day by the UTC offset —
+// a bill paid on the 12th would show as the 11th in the Americas. We always
+// render in UTC. For true *instants* (paidAt, createdAt) the displayed date
+// can differ by one near midnight UTC; that's an acceptable tradeoff.
 function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export function formatAbsoluteDate(date: Date): string {
@@ -43,6 +53,7 @@ export function formatAbsoluteDate(date: Date): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "@/server/trpc";
-import { createTemplateInput } from "./schemas";
+import { createTemplateInput, updateTemplateInput } from "./schemas";
 import { DuplicateTemplateInstanceError } from "./template-service";
 import * as svc from "./template-service";
 
@@ -26,6 +26,10 @@ export const templateRouter = router({
   create: protectedProcedure
     .input(createTemplateInput)
     .mutation(({ input, ctx }) => svc.createTemplate(input, ctx.user.id)),
+
+  update: protectedProcedure
+    .input(updateTemplateInput)
+    .mutation(({ input }) => svc.updateTemplate(input)),
 
   cancel: protectedProcedure
     .input(z.string())

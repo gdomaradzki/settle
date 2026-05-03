@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc-client";
@@ -23,6 +24,9 @@ type TemplateData = {
   paymentDayOfMonth: number;
   memo: string | null;
   glCategory: string | null;
+  endsAt: Date | null;
+  maxOccurrences: number | null;
+  requireApprovalPerInstance: boolean;
   cancelledAt: Date | null;
   createdAt: Date;
   vendor: { id: string; name: string };
@@ -37,6 +41,7 @@ interface Props {
 export function TemplateDetailView({ initialTemplate }: Props) {
   const [template, setTemplate] = useState(initialTemplate);
   const utils = trpc.useUtils();
+  const router = useRouter();
 
   const generate = trpc.templates.runGenerationForOne.useMutation({
     onSuccess: async () => {
@@ -110,6 +115,36 @@ export function TemplateDetailView({ initialTemplate }: Props) {
               Day {template.paymentDayOfMonth}
             </dd>
           </div>
+          {template.endsAt && (
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Ends on
+              </dt>
+              <dd className="mt-0.5 text-foreground">
+                {formatAbsoluteDate(new Date(template.endsAt))}
+              </dd>
+            </div>
+          )}
+          {template.maxOccurrences !== null && (
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Max occurrences
+              </dt>
+              <dd className="mt-0.5 text-foreground">
+                {template.maxOccurrences} ({template.bills.length} so far)
+              </dd>
+            </div>
+          )}
+          {template.requireApprovalPerInstance && (
+            <div className="col-span-2">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Approval
+              </dt>
+              <dd className="mt-0.5 text-foreground">
+                Each cycle requires approval before scheduling.
+              </dd>
+            </div>
+          )}
           {template.glCategory && (
             <div>
               <dt className="text-xs font-medium text-muted-foreground">
@@ -156,6 +191,14 @@ export function TemplateDetailView({ initialTemplate }: Props) {
           onClick={() => generate.mutate(template.id)}>
           {generate.isPending ? "Generating…" : "Generate next instance now"}
         </Button>
+        {!isCancelled && (
+          <Button
+            variant="outline"
+            disabled={isPending}
+            onClick={() => router.push(`/templates/${template.id}/edit`)}>
+            Edit
+          </Button>
+        )}
         {!isCancelled && (
           <Button
             variant="outline"

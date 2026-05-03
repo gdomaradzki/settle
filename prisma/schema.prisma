@@ -114,6 +114,17 @@ model BillTemplate {
   memo              String?
   glCategory        String?
 
+  // End conditions. Both nullable; generation stops on whichever hits first.
+  // endsAt compares against the target pay date; maxOccurrences against the
+  // count of bills ever generated for this template (any status).
+  endsAt         DateTime?
+  maxOccurrences Int?
+
+  // When true, generated bills land in PENDING_APPROVAL regardless of amount,
+  // with scheduledPayDate / scheduledMethod populated as the planned schedule.
+  // Approving such a bill transitions it directly to SCHEDULED.
+  requireApprovalPerInstance Boolean @default(false)
+
   createdById String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

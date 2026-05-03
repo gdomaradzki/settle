@@ -143,6 +143,8 @@ async function createScheduledBillFromTemplateInner(
   actorId: string,
 ): Promise<Bill> {
   const now = new Date();
+  const requiresApproval = template.requireApprovalPerInstance;
+
   const bill = await tx.bill.create({
     data: {
       vendorId: template.vendorId,
@@ -150,12 +152,15 @@ async function createScheduledBillFromTemplateInner(
       currency: "USD",
       issueDate: now,
       dueDate: payDate,
-      status: "SCHEDULED",
+      status: requiresApproval ? "PENDING_APPROVAL" : "SCHEDULED",
       memo: template.memo ?? undefined,
       glCategory: template.glCategory ?? undefined,
       submittedAt: now,
-      approvedAt: now,
-      approvedById: actorId,
+      approvedAt: requiresApproval ? null : now,
+      approvedById: requiresApproval ? null : actorId,
+      // Planned schedule is set at generation regardless of approval state, so
+      // an approver sees when the bill will pay; on approval the bill flips
+      // straight to SCHEDULED (see approveBill).
       scheduledPayDate: payDate,
       scheduledMethod: template.vendor.paymentMethod,
       createdById: actorId,
@@ -174,29 +179,45 @@ async function createScheduledBillFromTemplateInner(
     });
   }
 
-  await tx.billEvent.createMany({
-    data: [
-      {
-        billId: bill.id,
-        type: "created",
-        actorId,
-        payload: {
-          source: "recurring",
-          templateId: template.id,
-          autoApproved: "true",
-        },
+  type EventRow = {
+    billId: string;
+    type: string;
+    actorId: string;
+    payload: Record<string, string>;
+  };
+  const events: EventRow[] = [
+    {
+      billId: bill.id,
+      type: "created",
+      actorId,
+      payload: {
+        source: "recurring",
+        templateId: template.id,
+        autoApproved: requiresApproval ? "false" : "true",
       },
-      {
-        billId: bill.id,
-        type: "scheduled",
-        actorId,
-        payload: {
-          payDate: payDate.toISOString(),
-          method: template.vendor.paymentMethod,
-        },
+    },
+  ];
+
+  if (requiresApproval) {
+    events.push({
+      billId: bill.id,
+      type: "submitted",
+      actorId,
+      payload: { toStatus: "PENDING_APPROVAL" },
+    });
+  } else {
+    events.push({
+      billId: bill.id,
+      type: "scheduled",
+      actorId,
+      payload: {
+        payDate: payDate.toISOString(),
+        method: template.vendor.paymentMethod,
       },
-    ],
-  });
+    });
+  }
+
+  await tx.billEvent.createMany({ data: events });
 
   return bill;
 }
@@ -298,23 +319,53 @@ export async function approveBill(
       throw new UnauthorizedError("approve");
     }
 
+    // Recurring bills with a pre-set schedule (populated at template
+    // generation) skip the manual schedule step on approval.
+    const isPreScheduledRecurring =
+      bill.recurringTemplateId !== null &&
+      bill.scheduledPayDate !== null &&
+      bill.scheduledMethod !== null;
+
+    const now = new Date();
     const updated = await tx.bill.update({
       where: { id: billId },
       data: {
-        status: "APPROVED",
-        approvedAt: new Date(),
+        status: isPreScheduledRecurring ? "SCHEDULED" : "APPROVED",
+        approvedAt: now,
         approvedById: actorId,
       },
     });
 
-    await tx.billEvent.create({
-      data: {
+    const events: Array<{
+      billId: string;
+      type: string;
+      actorId: string;
+      payload: Record<string, string>;
+    }> = [
+      {
         billId,
         type: "approved",
         actorId,
-        payload: { fromStatus: "PENDING_APPROVAL", toStatus: "APPROVED" },
+        payload: {
+          fromStatus: "PENDING_APPROVAL",
+          toStatus: isPreScheduledRecurring ? "SCHEDULED" : "APPROVED",
+        },
       },
-    });
+    ];
+
+    if (isPreScheduledRecurring) {
+      events.push({
+        billId,
+        type: "scheduled",
+        actorId,
+        payload: {
+          payDate: bill.scheduledPayDate!.toISOString(),
+          method: bill.scheduledMethod!,
+        },
+      });
+    }
+
+    await tx.billEvent.createMany({ data: events });
 
     return updated;
   });

@@ -48,10 +48,10 @@ export default async function CronAdminPage() {
                     </p>
                   </div>
 
-                  <form action={runNow}>
+                  <form action={runNow} className="shrink-0">
                     <button
                       type="submit"
-                      className="shrink-0 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+                      className="whitespace-nowrap rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
                     >
                       Run now
                     </button>

@@ -10,7 +10,7 @@ import {
   createScheduledBillFromTemplate,
   type TemplateWithVendorAndLineItems,
 } from "@/features/bills/bill-service";
-import type { CreateTemplateInput } from "./schemas";
+import type { CreateTemplateInput, UpdateTemplateInput } from "./schemas";
 
 export type TemplateWithVendor = BillTemplate & {
   vendor: Vendor;
@@ -36,6 +36,9 @@ export async function createTemplate(
       paymentDayOfMonth: input.paymentDayOfMonth,
       memo: input.memo ?? null,
       glCategory: input.glCategory ?? null,
+      endsAt: input.endsAt ?? null,
+      maxOccurrences: input.maxOccurrences ?? null,
+      requireApprovalPerInstance: input.requireApprovalPerInstance ?? false,
       createdById: actorId,
       lineItems: {
         createMany: {
@@ -88,6 +91,40 @@ export async function cancelTemplate(
   return db.billTemplate.update({
     where: { id },
     data: { cancelledAt: new Date() },
+  });
+}
+
+// Edits apply to bills generated AFTER this call — past bills carry their
+// own copy of fields/line items and are unaffected.
+export async function updateTemplate(
+  input: UpdateTemplateInput,
+): Promise<BillTemplate> {
+  return db.$transaction(async (tx) => {
+    const updated = await tx.billTemplate.update({
+      where: { id: input.id },
+      data: {
+        description: input.description,
+        amountCents: input.amountCents,
+        memo: input.memo ?? null,
+        glCategory: input.glCategory ?? null,
+        endsAt: input.endsAt ?? null,
+        maxOccurrences: input.maxOccurrences ?? null,
+        requireApprovalPerInstance: input.requireApprovalPerInstance ?? false,
+      },
+    });
+
+    // Replace line items wholesale. Existing Bill.lineItems rows are on a
+    // separate table and remain attached to their bills.
+    await tx.billTemplateLineItem.deleteMany({ where: { templateId: input.id } });
+    await tx.billTemplateLineItem.createMany({
+      data: input.lineItems.map((li) => ({
+        templateId: input.id,
+        description: li.description,
+        amountCents: li.amountCents,
+      })),
+    });
+
+    return updated;
   });
 }
 

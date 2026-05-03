@@ -4,7 +4,7 @@
 
 - [x] Add (or modify) `vercel.json` at the repo root to declare a single cron entry: path `/api/cron/daily`, schedule `0 0 * * *`. No other config changes in this file.
 - [x] Append a `CRON_SECRET=` line to `.env.example` with a one-line comment describing the variable's purpose and that Vercel auto-injects it for cron invocations.
-- [ ] Document `CRON_SECRET` in the project README's environment-variables section if one exists (skip if not).
+- [x] Document `CRON_SECRET` in the project README's environment-variables section if one exists (skip if not). — no README env-vars section, skipped per spec.
 
 ## Schema — types
 
@@ -57,11 +57,11 @@
 ## Verification
 
 - [x] `npm run build` passes clean. No TypeScript errors. The empty `cronRegistry` does not produce unused-export warnings.
-- [ ] `npm run dev` boots without runtime errors.
-- [ ] `curl -X POST http://localhost:3000/api/cron/daily` (no auth header) returns HTTP 401.
-- [ ] `curl -X POST http://localhost:3000/api/cron/daily -H "Authorization: Bearer $CRON_SECRET"` returns HTTP 200 with body `{"jobs":[]}` (empty array — no jobs registered yet).
-- [ ] `curl -X POST http://localhost:3000/api/cron/trigger -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d '{"jobName":"does-not-exist"}'` returns HTTP 404.
-- [ ] Visit `http://localhost:3000/admin/cron` — page renders with heading "Scheduled jobs" and the empty-state block "No scheduled jobs registered."
+- [x] `npm run dev` boots without runtime errors.
+- [x] `curl -X POST http://localhost:3000/api/cron/daily` (no auth header) returns HTTP 401.
+- [x] `curl -X POST http://localhost:3000/api/cron/daily -H "Authorization: Bearer $CRON_SECRET"` returns HTTP 200 with body `{"jobs":[]}` (empty array — no jobs registered yet).
+- [x] `curl -X POST http://localhost:3000/api/cron/trigger -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d '{"jobName":"does-not-exist"}'` returns HTTP 404.
+- [x] Visit `http://localhost:3000/admin/cron` — page renders with heading "Scheduled jobs" and the empty-state block "No scheduled jobs registered."
 - [x] `openspec validate --strict add-cron-infrastructure` passes.
 
 ## Definition of done

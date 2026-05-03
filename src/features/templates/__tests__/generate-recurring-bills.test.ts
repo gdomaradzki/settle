@@ -11,6 +11,9 @@ type CreateTemplateOptions = {
   paymentMethod?: PaymentMethod;
   cancelledAt?: Date | null;
   description?: string;
+  endsAt?: Date | null;
+  maxOccurrences?: number | null;
+  requireApprovalPerInstance?: boolean;
 };
 
 async function createRecurringTemplate(opts: CreateTemplateOptions) {
@@ -26,6 +29,9 @@ async function createRecurringTemplate(opts: CreateTemplateOptions) {
       paymentDayOfMonth: opts.paymentDayOfMonth,
       createdById: user.id,
       cancelledAt: opts.cancelledAt ?? null,
+      endsAt: opts.endsAt ?? null,
+      maxOccurrences: opts.maxOccurrences ?? null,
+      requireApprovalPerInstance: opts.requireApprovalPerInstance ?? false,
       lineItems: {
         create: [{ description: "Service", amountCents: 100_00 }],
       },
@@ -198,5 +204,107 @@ describe("generate-recurring-bills cron", () => {
     expect(r2.skipped).toBe(1);
     expect(r2.errors).toEqual([]);
     expect(await db.bill.count()).toBe(1);
+  });
+
+  it("skips templates whose target pay date is past endsAt", async () => {
+    await createRecurringTemplate({
+      paymentDayOfMonth: 15,
+      paymentMethod: "ACH",
+      endsAt: utc(2026, 4, 14), // target pay date Apr 15 > endsAt Apr 14
+    });
+
+    const result = await runJob("generate-recurring-bills", {
+      now: utc(2026, 4, 5),
+    });
+
+    expect(result.processed).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(await db.bill.count()).toBe(0);
+  });
+
+  it("generates when target pay date equals endsAt (inclusive)", async () => {
+    const template = await createRecurringTemplate({
+      paymentDayOfMonth: 15,
+      paymentMethod: "ACH",
+      endsAt: utc(2026, 4, 15), // target == endsAt → still generates
+    });
+
+    const result = await runJob("generate-recurring-bills", {
+      now: utc(2026, 4, 5),
+    });
+
+    expect(result.processed).toBe(1);
+    expect(
+      await db.bill.count({ where: { recurringTemplateId: template.id } }),
+    ).toBe(1);
+  });
+
+  it("skips templates that have hit maxOccurrences", async () => {
+    const template = await createRecurringTemplate({
+      paymentDayOfMonth: 15,
+      paymentMethod: "ACH",
+      maxOccurrences: 2,
+    });
+    // Pre-seed two existing bills to simulate prior generations
+    const user = await createTestUser();
+    const vendor = await createTestVendor();
+    for (const dueDate of [utc(2026, 2, 15), utc(2026, 3, 15)]) {
+      await db.bill.create({
+        data: {
+          vendorId: vendor.id,
+          amountCents: 100_00,
+          currency: "USD",
+          issueDate: dueDate,
+          dueDate,
+          status: "PAID",
+          createdById: user.id,
+          recurringTemplateId: template.id,
+        },
+      });
+    }
+
+    const result = await runJob("generate-recurring-bills", {
+      now: utc(2026, 4, 5),
+    });
+
+    expect(result.processed).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(
+      await db.bill.count({ where: { recurringTemplateId: template.id } }),
+    ).toBe(2);
+  });
+
+  it("generates a PENDING_APPROVAL bill when requireApprovalPerInstance is true", async () => {
+    const template = await createRecurringTemplate({
+      paymentDayOfMonth: 15,
+      paymentMethod: "ACH",
+      requireApprovalPerInstance: true,
+    });
+
+    const result = await runJob("generate-recurring-bills", {
+      now: utc(2026, 4, 5),
+    });
+
+    expect(result.processed).toBe(1);
+    const bills = await db.bill.findMany({
+      where: { recurringTemplateId: template.id },
+    });
+    expect(bills).toHaveLength(1);
+    const bill = bills[0] as {
+      status: string;
+      scheduledPayDate: Date | null;
+      scheduledMethod: string | null;
+      approvedAt: Date | null;
+      approvedById: string | null;
+    };
+    expect(bill.status).toBe("PENDING_APPROVAL");
+    // Planned schedule populated even before approval
+    expect(bill.scheduledPayDate?.toISOString()).toBe(
+      utc(2026, 4, 15).toISOString(),
+    );
+    expect(bill.scheduledMethod).toBe("ACH");
+    // Not yet approved
+    expect(bill.approvedAt).toBeNull();
+    expect(bill.approvedById).toBeNull();
   });
 });

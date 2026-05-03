@@ -168,6 +168,53 @@ describe("approveBill", () => {
       InvalidTransitionError,
     );
   });
+
+  it("transitions PENDING_APPROVAL → SCHEDULED for a recurring bill with pre-set schedule", async () => {
+    const approver = await createTestUser({ role: "APPROVER" });
+    const creator = await createTestUser();
+    const vendor = await createTestVendor({ paymentMethod: "ACH" });
+    const template = await db.billTemplate.create({
+      data: {
+        vendorId: vendor.id,
+        description: "Rent",
+        amountCents: 100_00,
+        paymentDayOfMonth: 15,
+        createdById: creator.id,
+        requireApprovalPerInstance: true,
+        lineItems: { create: [{ description: "Rent", amountCents: 100_00 }] },
+      },
+    });
+    const payDate = new Date("2026-05-15");
+    const bill = await db.bill.create({
+      data: {
+        vendorId: vendor.id,
+        amountCents: 100_00,
+        currency: "USD",
+        issueDate: new Date(),
+        dueDate: payDate,
+        status: "PENDING_APPROVAL",
+        scheduledPayDate: payDate,
+        scheduledMethod: "ACH",
+        createdById: creator.id,
+        recurringTemplateId: template.id,
+      },
+    });
+
+    const updated = await approveBill(bill.id, approver.id);
+
+    expect(updated.status).toBe("SCHEDULED");
+    expect(updated.approvedAt).toBeTruthy();
+    expect(updated.approvedById).toBe(approver.id);
+
+    const events = await db.billEvent.findMany({
+      where: { billId: bill.id },
+      orderBy: { createdAt: "asc" },
+    });
+    const types = events.map((e) => (e as { type: string }).type);
+    expect(types).toEqual(["approved", "scheduled"]);
+    const approvedEv = events[0] as { payload: Record<string, string> | null };
+    expect(approvedEv.payload?.toStatus).toBe("SCHEDULED");
+  });
 });
 
 // ─── rejectBill ──────────────────────────────────────────────────────────────
