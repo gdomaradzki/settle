@@ -17,6 +17,12 @@ type BillInstance = {
   status: string;
 };
 
+type UpcomingOccurrence = {
+  payDate: Date;
+  generationDate: Date;
+  isLast: boolean;
+};
+
 type TemplateData = {
   id: string;
   description: string;
@@ -31,8 +37,16 @@ type TemplateData = {
   createdAt: Date;
   vendor: { id: string; name: string };
   lineItems: { id: string; description: string; amountCents: number }[];
-  bills: BillInstance[];
+  upcomingBills: BillInstance[];
+  pastBills: BillInstance[];
+  upcoming: UpcomingOccurrence[];
 };
+
+type UpcomingRow =
+  | { kind: "bill"; payDate: Date; bill: BillInstance }
+  | { kind: "forecast"; payDate: Date; occurrence: UpcomingOccurrence };
+
+const UPCOMING_INITIAL = 6;
 
 interface Props {
   initialTemplate: TemplateData;
@@ -40,6 +54,7 @@ interface Props {
 
 export function TemplateDetailView({ initialTemplate }: Props) {
   const [template, setTemplate] = useState(initialTemplate);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const utils = trpc.useUtils();
   const router = useRouter();
 
@@ -131,7 +146,9 @@ export function TemplateDetailView({ initialTemplate }: Props) {
                 Max occurrences
               </dt>
               <dd className="mt-0.5 text-foreground">
-                {template.maxOccurrences} ({template.bills.length} so far)
+                {template.maxOccurrences} (
+                {template.upcomingBills.length + template.pastBills.length} so
+                far)
               </dd>
             </div>
           )}
@@ -217,22 +234,107 @@ export function TemplateDetailView({ initialTemplate }: Props) {
         </div>
       )}
 
-      {/* Past instances */}
+      {/* Upcoming: in-flight bills + forecast pay dates, merged by date */}
+      {(() => {
+        if (isCancelled) return null;
+
+        const merged: UpcomingRow[] = [
+          ...template.upcomingBills.map(
+            (b): UpcomingRow => ({
+              kind: "bill",
+              payDate: new Date(b.dueDate),
+              bill: b,
+            }),
+          ),
+          ...template.upcoming.map(
+            (u): UpcomingRow => ({
+              kind: "forecast",
+              payDate: new Date(u.payDate),
+              occurrence: u,
+            }),
+          ),
+        ].sort((a, b) => a.payDate.getTime() - b.payDate.getTime());
+
+        if (merged.length === 0) return null;
+
+        const visible = showAllUpcoming
+          ? merged
+          : merged.slice(0, UPCOMING_INITIAL);
+        const hidden = merged.length - UPCOMING_INITIAL;
+
+        return (
+          <div className="mb-6">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Upcoming
+            </h2>
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {visible.map((row) => {
+                if (row.kind === "bill") {
+                  return (
+                    <li key={row.bill.id}>
+                      <Link
+                        href={`/bills/${row.bill.id}`}
+                        className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40">
+                        <span className="text-sm text-foreground">
+                          Pays {formatAbsoluteDate(row.payDate)}
+                        </span>
+                        <BillStatusPill
+                          status={row.bill.status as BillStatus}
+                        />
+                      </Link>
+                    </li>
+                  );
+                }
+                return (
+                  <li
+                    key={`forecast-${row.payDate.toISOString()}`}
+                    className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div className="text-sm text-foreground">
+                      Pays {formatAbsoluteDate(row.payDate)}
+                      {row.occurrence.isLast && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (last)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Generates{" "}
+                      {formatAbsoluteDate(
+                        new Date(row.occurrence.generationDate),
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {hidden > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllUpcoming((v) => !v)}
+                className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {showAllUpcoming ? "Show fewer" : `Show ${hidden} more`}
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Past: only finalized (PAID, REJECTED) bills */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Past instances
         </h2>
-        {template.bills.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No instances yet.</p>
+        {template.pastBills.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No past instances yet.</p>
         ) : (
           <ul className="divide-y divide-border rounded-xl border border-border">
-            {template.bills.map((b) => (
+            {template.pastBills.map((b) => (
               <li key={b.id}>
                 <Link
                   href={`/bills/${b.id}`}
                   className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40">
                   <span className="text-sm text-foreground">
-                    Due {formatAbsoluteDate(new Date(b.dueDate))}
+                    Paid {formatAbsoluteDate(new Date(b.dueDate))}
                   </span>
                   <BillStatusPill status={b.status as BillStatus} />
                 </Link>

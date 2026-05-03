@@ -11,6 +11,12 @@ import {
   type TemplateWithVendorAndLineItems,
 } from "@/features/bills/bill-service";
 import type { CreateTemplateInput, UpdateTemplateInput } from "./schemas";
+import {
+  computeUpcomingOccurrences,
+  type UpcomingOccurrence,
+} from "./lead-time";
+
+const UPCOMING_PREVIEW_COUNT = 24;
 
 export type TemplateWithVendor = BillTemplate & {
   vendor: Vendor;
@@ -60,16 +66,22 @@ export async function listTemplates(): Promise<TemplateWithVendor[]> {
   return rows as unknown as TemplateWithVendor[];
 }
 
+export type BillSummary = {
+  id: string;
+  dueDate: Date;
+  status: string;
+};
+
+const FINALIZED_STATUSES = new Set(["PAID", "REJECTED"]);
+
 export async function getTemplate(id: string): Promise<
   TemplateWithVendor & {
-    bills: {
-      id: string;
-      dueDate: Date;
-      status: string;
-    }[];
+    upcomingBills: BillSummary[];
+    pastBills: BillSummary[];
+    upcoming: UpcomingOccurrence[];
   }
 > {
-  const row = await db.billTemplate.findUniqueOrThrow({
+  const row = (await db.billTemplate.findUniqueOrThrow({
     where: { id },
     include: {
       vendor: true,
@@ -79,10 +91,25 @@ export async function getTemplate(id: string): Promise<
         orderBy: { dueDate: "desc" },
       },
     },
-  });
-  return row as unknown as TemplateWithVendor & {
-    bills: { id: string; dueDate: Date; status: string }[];
-  };
+  })) as unknown as TemplateWithVendor & { bills: BillSummary[] };
+
+  // Upcoming = generated but not yet finalized (so PENDING_APPROVAL /
+  // SCHEDULED / APPROVED bills sit in upcoming until they are PAID or
+  // REJECTED). Sorted ascending so the next-due bill is at the top.
+  const upcomingBills = row.bills
+    .filter((b) => !FINALIZED_STATUSES.has(b.status))
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  const pastBills = row.bills.filter((b) => FINALIZED_STATUSES.has(b.status));
+
+  const upcoming = computeUpcomingOccurrences(
+    row,
+    row.bills.length,
+    row.bills.map((b) => b.dueDate),
+    new Date(),
+    UPCOMING_PREVIEW_COUNT,
+  );
+
+  return { ...row, upcomingBills, pastBills, upcoming };
 }
 
 export async function cancelTemplate(
