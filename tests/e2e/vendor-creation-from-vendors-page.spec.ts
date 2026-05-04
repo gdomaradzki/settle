@@ -25,7 +25,10 @@ test.describe("Vendor creation from /vendors page", () => {
     // Submit
     await page.getByRole("button", { name: /create vendor/i }).click();
 
-    // Dialog should close and the new vendor should appear in the table
-    await expect(page.getByText("Stripe Inc")).toBeVisible({ timeout: 10_000 });
+    // Dialog should close and the new vendor should appear in the table.
+    // Scope to the cell role so we don't match the success toast.
+    await expect(
+      page.getByRole("cell", { name: "Stripe Inc" }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
