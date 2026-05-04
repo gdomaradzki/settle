@@ -16,7 +16,9 @@ The deployed app starts you signed in as Gus Silva (submitter). Ada Chen (CFO, a
 2. From the inbox toolbar, click **+ New bill**. Drop a real invoice PDF onto the uploader. Claude extracts vendor, amount, dates, and line items from the actual PDF content. Review the form, click **Submit for approval**.
 3. If a bill is above the $5,000 approval threshold, status becomes `PENDING_APPROVAL`. Switch to **Ada Chen** in the top bar and she can approve or reject.
 4. Approve the bill (click or press `A`). Switch back to Gus. Schedule a payment, then send it. The timeline grows with each transition.
-5. Visit the **Dashboard**, **Reports → AP Aging**, and **Vendors** to see the supporting surfaces.
+5. Visit the **Templates** page to see the seeded "Beacon office rent" recurring bill, with its upcoming pay dates and lead-time-aware generation schedule. Create a new template to set up your own recurrence.
+6. Open **/admin/cron** to manually trigger the daily jobs (`generate-recurring-bills`, `process-scheduled-payments`) without waiting for the scheduled run.
+7. Visit the **Dashboard**, **Reports → AP Aging**, and **Vendors** to see the supporting surfaces.
 
 ## What Settle does
 
@@ -24,7 +26,8 @@ An AP product's job is to answer, at any moment: what do we owe, to whom, what n
 
 - **Bill intake** through three paths: manual form, PDF upload with Claude-powered extraction, and CSV bulk upload.
 - **Approval routing** with a single threshold rule. Bills at or above $5,000 require an approver. Below threshold, bills auto-approve on submit.
-- **Payment scheduling** and simulated execution. The MVP flips status and stamps a fake confirmation number. There are no real ACH or check rails.
+- **Payment scheduling** and simulated execution. Manual scheduling flips status and stamps a fake confirmation number; a daily cron also flips every `SCHEDULED` bill whose pay date has arrived to `PAID`. There are no real ACH or check rails.
+- **Recurring bills** via templates. A daily cron materializes a `SCHEDULED` bill from each active template ahead of its pay date, with a payment-method-aware lead time (10 days for ACH, 15 for check). End conditions (`endsAt`, `maxOccurrences`, `cancelledAt`) and an opt-in per-instance approval flag are all supported. Re-runs are idempotent on `(templateId, dueDate)`.
 - **Per-bill activity timeline** sourced from an append-only event log, so every state transition is auditable.
 - **Dashboard** with the three metrics a finance person scans every morning: what needs my approval, what's due this week, cash out next 30 days.
 - **AP Aging Report** bucketed by days past due (current, 1 to 30, 31 to 60, 61+).
@@ -39,6 +42,7 @@ Ordered by what I built first:
 4. Intake paths: manual, PDF with extraction, CSV bulk.
 5. Dashboard and AP aging report.
 6. Vendors page with inline creation, reused across the intake form's vendor picker.
+7. Recurring bills + cron infrastructure. A registry-pattern runner (`src/server/cron/`) executes daily on Vercel Cron and routes through two jobs: `generate-recurring-bills` (materializes upcoming bills from templates with method-specific lead time) and `process-scheduled-payments` (flips matured `SCHEDULED` bills to `PAID`). An admin UI at `/admin/cron` runs each job on demand and shows the last-run summary.
 
 ## What I cut, and why
 
@@ -52,11 +56,10 @@ Deliberate scope decisions, each with a one-line rationale:
 | Real auth, multi-tenancy | Fake user switcher instead. The eval is about product and systems, not rebuilding auth. |
 | Email-to-bill ingestion (`@ap.settle.com`) | Email ingestion infra is its own project. |
 | Line item splits and allocation templates | High implementation cost, invisible unless the reviewer explicitly opens a split modal. |
-| Recurring bill payments | Scheduler plus recurrence rules plus idempotency. Stretch after stretch. |
 | PO matching, duplicate detection, W-9 collection | Breadth without depth. |
 | Audit exports, notifications, complex rules engine | Out of scope for the MVP. |
 
-Short design sketches of splits and recurring bills are in the "What I'd build next" section at the bottom, since those two are the features a thoughtful AP eval would probe about.
+A short design sketch of line item splits is in the "What I'd build next" section at the bottom, since splits are the feature a thoughtful AP eval would probe about. Recurring bills also live there originally — that one shipped, and the implementation notes are in `openspec/specs/templates/`.
 
 ## Setup
 
@@ -137,11 +140,12 @@ For the e2e suite, `npm run test:e2e` starts the dev server automatically on por
 
 - **Framework**: Next.js 16 (App Router) with TypeScript. One process, one deploy.
 - **API layer**: tRPC. End-to-end types, shared zod schemas between forms and server.
-- **ORM**: Prisma.
+- **ORM**: Prisma, with SQL migrations under `prisma/migrations/`.
 - **Database**: PostgreSQL via Neon (Vercel Postgres Marketplace integration). Scale-to-zero with sub-second resume.
 - **UI**: Tailwind with shadcn/ui.
 - **PDF extraction**: Claude via `@anthropic-ai/sdk` with a graceful fallback to canned sample data. Real extraction runs when `ANTHROPIC_API_KEY` is set. Otherwise the demo stays functional via filename-keyed canned data.
 - **PDF storage**: Vercel Blob (1GB free on Hobby). Uploaded files get public URLs with random suffixes.
+- **Cron**: Vercel Cron triggers `app/api/cron/daily/route.ts` once a day. The route iterates a small in-process `cronRegistry` (`src/server/cron/registry.ts`); adding a job is one append. Each job is also runnable on demand from `/admin/cron` and via `app/api/cron/trigger/route.ts`. The `system` user is the actor for every cron-driven `BillEvent`, so audit trail attribution is unambiguous.
 - **Testing**: Vitest for backend service and router tests (real Postgres, transactional isolation) and React Testing Library for component tests (jsdom, mocked tRPC). Playwright for end-to-end flows. All suites run against an isolated Docker Postgres, never the dev database.
 - **Deploy**: Vercel.
 
@@ -150,20 +154,27 @@ For the e2e suite, `npm run test:e2e` starts the dev server automatically on por
 Domain-driven. Each domain is self-contained.
 
 ```
+app/                              # Next.js App Router routes (top-level)
+├── admin/cron/                   # Manual job-runner UI
+├── api/cron/                     # daily + trigger HTTP endpoints
+└── templates/                    # Recurring bill template list, new, detail, edit
 src/
-├── app/                          # Next.js App Router routes
 ├── components/                   # Cross-feature UI (shadcn primitives, top bar)
 ├── features/
 │   ├── bills/                    # Schema, service (state machine), router, components, hooks
 │   ├── vendors/
-│   ├── users/
+│   ├── users/                    # Includes the `system` user constant for cron-attributed events
 │   ├── approvals/                # Approval threshold constant and helpers
 │   ├── intake/                   # Upload, extraction, CSV bulk
+│   ├── templates/                # Recurring bill templates: schemas, service, router, lead-time math, generate-recurring-bills cron
+│   ├── payments/                 # process-scheduled-payments cron (SCHEDULED → PAID)
 │   ├── dashboard/
 │   └── reports/                  # AP aging
 ├── hooks/                        # Cross-feature hooks
 ├── lib/                          # formatUSD, date helpers
-├── server/                       # Prisma client, tRPC bootstrap, root router
+├── server/
+│   ├── cron/                     # Cron registry, runner, types — one entry per job
+│   └── …                         # Prisma client, tRPC bootstrap, root router
 └── test/                         # Shared test utilities: factories, reset helpers, mocks
 tests/
 └── e2e/                          # Playwright end-to-end specs and helpers
@@ -192,8 +203,6 @@ Time budget: about 4 hours of focused work across planning, implementation, and 
 ## What I'd build next
 
 **Line item splits and allocation templates.** A `LineItemAllocation` table cascaded off `BillLineItem` with a sum-equals-line constraint. One line ("Consulting, $30,000") allocates across multiple cost centers ($15k Eng, $10k Product, $5k Sales). Reusable templates (`AllocationTemplate` table) apply to new lines on matching vendors. Reporting then aggregates by department in addition to by vendor. I cut this because the implementation cost is meaningful and the feature is invisible until the reviewer opens a split modal. Poor ratio for a take-home.
-
-**Recurring bills.** A `BillTemplate` model with RRULE-style recurrence, materialized into concrete `Bill` rows via Vercel Cron. Idempotency keyed on `(templateId, dueDate)` so the generator is safe to re-run. Mid-series cancellation via `cancelledAt` on the template. Instances after that date are skipped. Editing applies to future instances only unless the user opts to backport. I cut this because demo surface is near-zero (you can't click "wait a month" during an interview) and correctness is tricky at the edges.
 
 **Real auth and multi-tenancy.** Replace the cookie-backed user switcher with a real session provider and scope every query by `orgId`. The tRPC context is already the right seam.
 
